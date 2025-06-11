@@ -102,7 +102,7 @@ function EditableText({
 function EditModal({ item, onClose, onSave }: EditModalProps) {
   const [formData, setFormData] = useState<MenuItem>(
     item || {
-      id: crypto.randomUUID(),
+      id: '',
       name: '',
       description: '',
       price: 0,
@@ -322,9 +322,8 @@ export default function Menu() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSize, setSelectedSize] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
-  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [editingItem, setEditingItem] = useState<MenuItem | null | undefined>(undefined);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [editingField, setEditingField] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -454,7 +453,7 @@ export default function Menu() {
           {isAdmin && (
             <button
               onClick={() => setEditingItem(null)}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center"
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center hover:bg-purple-700 transition"
             >
               <Plus className="h-5 w-5 mr-2" />
               Novo Item
