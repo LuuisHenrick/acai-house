@@ -5,6 +5,7 @@ import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import ContentEditable from 'react-contenteditable';
+import AdminPromotions from './AdminPromotions';
 import {
   LogOut,
   Image,
@@ -67,21 +68,6 @@ interface Product {
   showInMenu: boolean;
 }
 
-interface Promotion {
-  id: number;
-  title: string;
-  description: string;
-  originalPrice: number;
-  promoPrice: number;
-  discount: number;
-  image: string;
-  startDate: Date;
-  endDate: Date;
-  isActive: boolean;
-  isFlash: boolean;
-  code?: string;
-}
-
 interface ActivityLog {
   id: number;
   userId: string;
@@ -133,7 +119,6 @@ export default function AdminDashboard() {
   const [contentHistory, setContentHistory] = useState<SiteContent[]>([initialSiteContent]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [products, setProducts] = useState<Product[]>([]);
-  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
@@ -368,8 +353,7 @@ export default function AdminDashboard() {
       // Here you would typically make API calls to save the changes
       console.log('Saving changes:', {
         siteContent,
-        products,
-        promotions
+        products
       });
 
       // Add to history
@@ -741,6 +725,9 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
+
+            {/* Promotions Section */}
+            {activeSection === 'promotions' && <AdminPromotions />}
 
             {/* Location Section */}
             {activeSection === 'location' && (

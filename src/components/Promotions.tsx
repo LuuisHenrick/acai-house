@@ -1,45 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Timer, Gift, Share2, ShoppingBag, Shield, Truck } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { supabase } from '../lib/supabase';
 
 interface Promotion {
-  id: number;
+  id: string;
   title: string;
   description: string;
-  originalPrice: number;
-  promoPrice: number;
-  discount: number;
-  image: string;
-  endDate: string;
-  isFlash: boolean;
-  code?: string;
+  product_name: string;
+  original_price: number;
+  promo_price: number;
+  discount_percentage: number;
+  coupon_code?: string;
+  start_date: string;
+  end_date: string;
+  image_url: string;
+  is_flash: boolean;
+  active: boolean;
 }
-
-const promotions: Promotion[] = [
-  {
-    id: 1,
-    title: "Açaí Premium Duplo",
-    description: "2 Açaís Premium (700ml) com todos os complementos!",
-    originalPrice: 59.80,
-    promoPrice: 39.90,
-    discount: 33,
-    image: "https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80",
-    endDate: "2025-03-10T23:59:59",
-    isFlash: true
-  },
-  {
-    id: 2,
-    title: "Combo Família",
-    description: "1 Açaí Grande + 2 Médios com até 5 complementos cada",
-    originalPrice: 89.90,
-    promoPrice: 69.90,
-    discount: 22,
-    image: "https://images.unsplash.com/photo-1596463119298-3e5d8d8b4001?auto=format&fit=crop&q=80",
-    endDate: "2025-03-15T23:59:59",
-    isFlash: false,
-    code: "FAMILIA10"
-  }
-];
 
 function CountdownTimer({ endDate }: { endDate: string }) {
   const [timeLeft, setTimeLeft] = useState({
@@ -94,10 +72,36 @@ function CountdownTimer({ endDate }: { endDate: string }) {
 
 export default function Promotions() {
   const { addToCart } = useCart();
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadPromotions();
+  }, []);
+
+  const loadPromotions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('promotions')
+        .select('*')
+        .eq('active', true)
+        .lte('start_date', new Date().toISOString())
+        .gte('end_date', new Date().toISOString())
+        .order('is_flash', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setPromotions(data || []);
+    } catch (error) {
+      console.error('Error loading promotions:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleShare = (promotion: Promotion) => {
-    const text = `Aproveite esta promoção incrível na Açaí House! ${promotion.title} por apenas R$ ${promotion.promoPrice.toFixed(2)}! ${window.location.href}#promotions`;
+    const text = `Aproveite esta promoção incrível na Açaí House! ${promotion.title} por apenas R$ ${promotion.promo_price.toFixed(2)}! ${window.location.href}#promotions`;
     
     if (navigator.share) {
       navigator.share({
@@ -116,6 +120,22 @@ export default function Promotions() {
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 2000);
   };
+
+  if (isLoading) {
+    return (
+      <section id="promotions" className="py-20 bg-gradient-to-b from-purple-50 to-white">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full"></div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (promotions.length === 0) {
+    return null; // Don't show the section if there are no active promotions
+  }
 
   return (
     <section id="promotions" className="py-20 bg-gradient-to-b from-purple-50 to-white">
@@ -155,17 +175,17 @@ export default function Promotions() {
             <div key={promo.id} className="bg-white rounded-lg shadow-xl overflow-hidden">
               <div className="relative">
                 <img
-                  src={promo.image}
+                  src={promo.image_url || 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80'}
                   alt={promo.title}
                   className="w-full h-64 object-cover"
                 />
-                {promo.isFlash && (
+                {promo.is_flash && (
                   <div className="absolute top-4 left-4 bg-red-500 text-white px-4 py-2 rounded-full text-sm font-semibold animate-pulse">
                     Promoção Relâmpago!
                   </div>
                 )}
                 <div className="absolute top-4 right-4 bg-purple-600 text-white px-4 py-2 rounded-full text-lg font-bold">
-                  -{promo.discount}%
+                  -{promo.discount_percentage}%
                 </div>
               </div>
 
@@ -176,27 +196,27 @@ export default function Promotions() {
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <span className="text-gray-400 line-through text-lg">
-                      R$ {promo.originalPrice.toFixed(2)}
+                      R$ {promo.original_price.toFixed(2)}
                     </span>
                     <span className="text-3xl font-bold text-purple-600 ml-3">
-                      R$ {promo.promoPrice.toFixed(2)}
+                      R$ {promo.promo_price.toFixed(2)}
                     </span>
                   </div>
-                  <CountdownTimer endDate={promo.endDate} />
+                  <CountdownTimer endDate={promo.end_date} />
                 </div>
 
-                {promo.code && (
+                {promo.coupon_code && (
                   <div className="bg-purple-50 p-4 rounded-lg mb-6">
                     <p className="text-sm text-purple-600 mb-2">Use o cupom:</p>
                     <div className="flex items-center justify-between bg-white border-2 border-purple-200 rounded-lg p-2">
                       <code className="text-lg font-mono font-bold text-purple-600">
-                        {promo.code}
+                        {promo.coupon_code}
                       </code>
                       <button
-                        onClick={() => copyCode(promo.code!)}
+                        onClick={() => copyCode(promo.coupon_code!)}
                         className="text-purple-600 hover:text-purple-700 text-sm font-semibold"
                       >
-                        {copiedCode === promo.code ? 'Copiado!' : 'Copiar'}
+                        {copiedCode === promo.coupon_code ? 'Copiado!' : 'Copiar'}
                       </button>
                     </div>
                   </div>
@@ -207,8 +227,8 @@ export default function Promotions() {
                     onClick={() => addToCart({
                       id: promo.id,
                       name: promo.title,
-                      price: promo.promoPrice,
-                      image: promo.image
+                      price: promo.promo_price,
+                      image: promo.image_url || 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80'
                     }, 'M', [])}
                     className="flex-1 bg-purple-600 text-white py-3 rounded-lg font-semibold
                       hover:bg-purple-700 transition flex items-center justify-center"
