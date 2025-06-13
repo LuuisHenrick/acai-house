@@ -6,6 +6,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import ContentEditable from 'react-contenteditable';
 import AdminPromotions from './AdminPromotions';
+import AdminProducts from './AdminProducts';
 import {
   LogOut,
   Image,
@@ -28,7 +29,8 @@ import {
   ToggleLeft,
   ToggleRight,
   History,
-  Download
+  Download,
+  Package
 } from 'lucide-react';
 
 // Types
@@ -55,17 +57,6 @@ interface SiteContent {
       lng: number;
     };
   };
-}
-
-interface Product {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  image: string;
-  sizes: string[];
-  category: string;
-  showInMenu: boolean;
 }
 
 interface ActivityLog {
@@ -118,7 +109,6 @@ export default function AdminDashboard() {
   const [siteContent, setSiteContent] = useState<SiteContent>(initialSiteContent);
   const [contentHistory, setContentHistory] = useState<SiteContent[]>([initialSiteContent]);
   const [historyIndex, setHistoryIndex] = useState(0);
-  const [products, setProducts] = useState<Product[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
@@ -352,8 +342,7 @@ export default function AdminDashboard() {
     try {
       // Here you would typically make API calls to save the changes
       console.log('Saving changes:', {
-        siteContent,
-        products
+        siteContent
       });
 
       // Add to history
@@ -378,7 +367,7 @@ export default function AdminDashboard() {
   // Navigation menu items
   const menuItems = [
     { id: 'content', label: 'Conteúdo', icon: Layout },
-    { id: 'products', label: 'Produtos', icon: DollarSign },
+    { id: 'products', label: 'Produtos', icon: Package },
     { id: 'promotions', label: 'Promoções', icon: FileText },
     { id: 'location', label: 'Localização', icon: MapPin },
     { id: 'settings', label: 'Configurações', icon: Settings }
@@ -725,6 +714,9 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
+
+            {/* Products Section */}
+            {activeSection === 'products' && <AdminProducts />}
 
             {/* Promotions Section */}
             {activeSection === 'promotions' && <AdminPromotions />}
