@@ -20,7 +20,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const CORRECT_USERNAME = 'acaihouse.admin';
+const CORRECT_USERNAME = 'admin@acaihouse.com';
 const CORRECT_PASSWORD = 'admin@house';
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
@@ -90,12 +90,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
+    // Convert username to email format if needed
+    const email = username.includes('@') ? username : CORRECT_USERNAME;
+
     // Validate credentials locally first
-    if (username === CORRECT_USERNAME && password === CORRECT_PASSWORD) {
+    if ((username === CORRECT_USERNAME || username === 'acaihouse.admin') && password === CORRECT_PASSWORD) {
       try {
         // Authenticate with Supabase
         const { data: supabaseAuthData, error } = await supabase.auth.signInWithPassword({
-          email: username,
+          email: email,
           password: password
         });
 
