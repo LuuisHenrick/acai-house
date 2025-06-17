@@ -125,8 +125,16 @@ export default function AdminDashboard() {
   // Initialize Google Maps with Places Autocomplete
   useEffect(() => {
     if (activeSection === 'location' && !mapRef.current && mapContainerRef.current) {
+      const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      
+      if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_ACTUAL_GOOGLE_MAPS_API_KEY') {
+        console.warn('Google Maps API key not configured. Please set VITE_GOOGLE_MAPS_API_KEY in your .env file.');
+        setErrorMessage('Google Maps API key not configured. Please contact administrator.');
+        return;
+      }
+
       const loader = new Loader({
-        apiKey: 'YOUR_GOOGLE_MAPS_API_KEY',
+        apiKey: googleMapsApiKey,
         version: 'weekly',
         libraries: ['places']
       });
@@ -188,6 +196,9 @@ export default function AdminDashboard() {
         });
 
         mapRef.current = map;
+      }).catch((error) => {
+        console.error('Error loading Google Maps:', error);
+        setErrorMessage('Error loading Google Maps. Please check your API key configuration.');
       });
     }
   }, [activeSection]);

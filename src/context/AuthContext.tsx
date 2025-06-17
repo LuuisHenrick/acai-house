@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 interface User {
   username: string;
   role: 'admin' | 'editor' | 'viewer';
+  supabaseId?: string;
 }
 
 interface AuthContextType {
@@ -31,6 +33,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [lockoutEndTime, setLockoutEndTime] = useState<number | null>(null);
   const [lastActivity, setLastActivity] = useState(Date.now());
   const navigate = useNavigate();
+
+  // Check for existing Supabase session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setIsAuthenticated(true);
+        setUser({
+          username: session.user.email || CORRECT_USERNAME,
+          role: 'admin',
+          supabaseId: session.user.id
+        });
+      }
+    };
+
+    checkSession();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Check for session timeout
   useEffect(() => {
@@ -61,17 +90,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    // Validate credentials
+    // Validate credentials locally first
     if (username === CORRECT_USERNAME && password === CORRECT_PASSWORD) {
-      setIsAuthenticated(true);
-      setUser({
-        username: CORRECT_USERNAME,
-        role: 'admin'
-      });
-      setLoginAttempts(0);
-      setLockoutEndTime(null);
-      navigate('/admin/dashboard');
-      return true;
+      try {
+        // Authenticate with Supabase
+        const { data: supabaseAuthData, error } = await supabase.auth.signInWithPassword({
+          email: username,
+          password: password
+        });
+
+        if (error) {
+          console.error('Supabase authentication failed:', error);
+          // Handle failed login attempt
+          const newAttempts = loginAttempts + 1;
+          setLoginAttempts(newAttempts);
+
+          if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+            setLockoutEndTime(Date.now() + LOCKOUT_DURATION);
+            setLoginAttempts(0);
+          }
+          return false;
+        }
+
+        if (supabaseAuthData.user) {
+          setIsAuthenticated(true);
+          setUser({
+            username: CORRECT_USERNAME,
+            role: 'admin',
+            supabaseId: supabaseAuthData.user.id
+          });
+          setLoginAttempts(0);
+          setLockoutEndTime(null);
+          navigate('/admin/dashboard');
+          return true;
+        }
+      } catch (error) {
+        console.error('Authentication error:', error);
+        // Handle failed login attempt
+        const newAttempts = loginAttempts + 1;
+        setLoginAttempts(newAttempts);
+
+        if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+          setLockoutEndTime(Date.now() + LOCKOUT_DURATION);
+          setLoginAttempts(0);
+        }
+        return false;
+      }
     }
 
     // Handle failed login attempt
@@ -86,7 +150,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error signing out from Supabase:', error);
+    }
+    
     setIsAuthenticated(false);
     setUser(null);
     navigate('/admin/login');
