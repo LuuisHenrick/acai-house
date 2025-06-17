@@ -1,19 +1,44 @@
 import React, { useState } from 'react';
-import { ShoppingCart, Menu, X } from 'lucide-react';
+import { ShoppingCart, Menu, X, Package } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { items, setIsCartOpen } = useCart();
+  const { settings } = useSiteSettings();
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
+
+  const handleLogoError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    e.currentTarget.style.display = 'none';
+    // Show fallback icon
+    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+    if (fallback) {
+      fallback.style.display = 'block';
+    }
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 bg-purple-900 text-white shadow-lg z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <div className="flex-shrink-0 font-bold text-2xl">
-            Açaí House
+          {/* Logo and Brand */}
+          <div className="flex items-center space-x-3">
+            <div className="relative">
+              <img
+                src={settings.logo_url}
+                alt={settings.logo_alt_text}
+                className="h-10 w-10 object-contain rounded-lg"
+                onError={handleLogoError}
+              />
+              <Package 
+                className="h-10 w-10 text-purple-200 hidden" 
+                style={{ display: 'none' }}
+              />
+            </div>
+            <div className="font-bold text-2xl">
+              {settings.site_name}
+            </div>
           </div>
 
           {/* Desktop Navigation */}

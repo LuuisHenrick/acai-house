@@ -7,6 +7,7 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import ContentEditable from 'react-contenteditable';
 import AdminPromotions from './AdminPromotions';
 import AdminProducts from './AdminProducts';
+import AdminSettings from './AdminSettings';
 import {
   LogOut,
   Image,
@@ -731,6 +732,9 @@ export default function AdminDashboard() {
 
             {/* Promotions Section */}
             {activeSection === 'promotions' && <AdminPromotions />}
+
+            {/* Settings Section */}
+            {activeSection === 'settings' && <AdminSettings />}
 
             {/* Location Section */}
             {activeSection === 'location' && (

@@ -12,6 +12,8 @@ import AdminLogin from './components/admin/AdminLogin';
 import AdminDashboard from './components/admin/AdminDashboard';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SiteSettingsProvider } from './context/SiteSettingsContext';
+import { Toaster } from 'react-hot-toast';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -22,31 +24,34 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <CartProvider>
-          <Routes>
-            {/* Customer Routes */}
-            <Route path="/" element={
-              <div className="min-h-screen bg-white">
-                <Header />
-                <Hero />
-                <Menu />
-                <Promotions />
-                <About />
-                <Contact />
-                <Cart />
-                <Checkout />
-              </div>
-            } />
+        <SiteSettingsProvider>
+          <CartProvider>
+            <Toaster position="top-right" />
+            <Routes>
+              {/* Customer Routes */}
+              <Route path="/" element={
+                <div className="min-h-screen bg-white">
+                  <Header />
+                  <Hero />
+                  <Menu />
+                  <Promotions />
+                  <About />
+                  <Contact />
+                  <Cart />
+                  <Checkout />
+                </div>
+              } />
 
-            {/* Admin Routes */}
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin/dashboard" element={
-              <PrivateRoute>
-                <AdminDashboard />
-              </PrivateRoute>
-            } />
-          </Routes>
-        </CartProvider>
+              {/* Admin Routes */}
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/admin/dashboard" element={
+                <PrivateRoute>
+                  <AdminDashboard />
+                </PrivateRoute>
+              } />
+            </Routes>
+          </CartProvider>
+        </SiteSettingsProvider>
       </AuthProvider>
     </Router>
   );
