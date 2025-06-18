@@ -8,6 +8,7 @@ import ContentEditable from 'react-contenteditable';
 import AdminPromotions from './AdminPromotions';
 import AdminProducts from './AdminProducts';
 import AdminSettings from './AdminSettings';
+import AdminAddons from './AdminAddons';
 import {
   LogOut,
   Image,
@@ -31,7 +32,8 @@ import {
   ToggleRight,
   History,
   Download,
-  Package
+  Package,
+  Tag
 } from 'lucide-react';
 
 // Types
@@ -106,7 +108,7 @@ const AUTOSAVE_DELAY = 3000; // 3 seconds
 
 export default function AdminDashboard() {
   const { logout, user } = useAuth();
-  const [activeSection, setActiveSection] = useState<'content' | 'products' | 'promotions' | 'location' | 'settings'>('content');
+  const [activeSection, setActiveSection] = useState<'content' | 'products' | 'promotions' | 'addons' | 'location' | 'settings'>('content');
   const [siteContent, setSiteContent] = useState<SiteContent>(initialSiteContent);
   const [contentHistory, setContentHistory] = useState<SiteContent[]>([initialSiteContent]);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -381,6 +383,7 @@ export default function AdminDashboard() {
     { id: 'content', label: 'Conteúdo', icon: Layout },
     { id: 'products', label: 'Produtos', icon: Package },
     { id: 'promotions', label: 'Promoções', icon: FileText },
+    { id: 'addons', label: 'Acréscimos', icon: Tag },
     { id: 'location', label: 'Localização', icon: MapPin },
     { id: 'settings', label: 'Configurações', icon: Settings }
   ];
@@ -732,6 +735,9 @@ export default function AdminDashboard() {
 
             {/* Promotions Section */}
             {activeSection === 'promotions' && <AdminPromotions />}
+
+            {/* Addons Section */}
+            {activeSection === 'addons' && <AdminAddons />}
 
             {/* Settings Section */}
             {activeSection === 'settings' && <AdminSettings />}
