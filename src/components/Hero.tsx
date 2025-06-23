@@ -1,12 +1,15 @@
 import React from 'react';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 
 export default function Hero() {
+  const { settings } = useSiteSettings();
+
   return (
     <div className="relative h-screen">
       <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-500"
         style={{
-          backgroundImage: 'url("https://images.unsplash.com/photo-1596463059283-da257325bab8?auto=format&fit=crop&q=80")',
+          backgroundImage: `url("${settings.hero_background_url}")`,
         }}
       >
         <div className="absolute inset-0 bg-black bg-opacity-50"></div>

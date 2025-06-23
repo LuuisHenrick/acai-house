@@ -9,6 +9,8 @@ import AdminPromotions from './AdminPromotions';
 import AdminProducts from './AdminProducts';
 import AdminSettings from './AdminSettings';
 import AdminAddons from './AdminAddons';
+import HeroImageUpload from './HeroImageUpload';
+import { useSiteSettings } from '../../context/SiteSettingsContext';
 import {
   LogOut,
   Image,
@@ -108,6 +110,7 @@ const AUTOSAVE_DELAY = 3000; // 3 seconds
 
 export default function AdminDashboard() {
   const { logout, user } = useAuth();
+  const { settings, refreshSettings } = useSiteSettings();
   const [activeSection, setActiveSection] = useState<'content' | 'products' | 'promotions' | 'addons' | 'location' | 'settings'>('content');
   const [siteContent, setSiteContent] = useState<SiteContent>(initialSiteContent);
   const [contentHistory, setContentHistory] = useState<SiteContent[]>([initialSiteContent]);
@@ -378,6 +381,19 @@ export default function AdminDashboard() {
     }
   };
 
+  // Handle hero background image update
+  const handleHeroImageUpdate = (url: string) => {
+    setSiteContent(prev => ({
+      ...prev,
+      hero: { ...prev.hero, backgroundImage: url }
+    }));
+    setHasUnsavedChanges(true);
+    logActivity('Updated hero background image');
+    
+    // Refresh settings to update the Hero component
+    refreshSettings();
+  };
+
   // Navigation menu items
   const menuItems = [
     { id: 'content', label: 'Conteúdo', icon: Layout },
@@ -521,8 +537,15 @@ export default function AdminDashboard() {
                 <h2 className="text-xl font-semibold mb-6">Gerenciar Conteúdo do Site</h2>
                 
                 {/* Hero Section */}
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <h3 className="text-lg font-medium">Seção Principal (Hero)</h3>
+                  
+                  {/* Hero Background Image Upload */}
+                  <HeroImageUpload
+                    currentImageUrl={settings.hero_background_url}
+                    onImageUpdate={handleHeroImageUpdate}
+                  />
+                  
                   <div className="grid gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -545,60 +568,6 @@ export default function AdminDashboard() {
                         className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                         disabled={previewMode}
                       />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Imagem de Fundo
-                      </label>
-                      <div className="flex items-center space-x-4">
-                        <div
-                          className="relative flex-1 p-2 border rounded-lg cursor-pointer hover:bg-gray-50"
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            setIsDragging(true);
-                          }}
-                          onDragLeave={() => setIsDragging(false)}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            setIsDragging(false);
-                            const file = e.dataTransfer.files[0];
-                            if (file && file.type.startsWith('image/')) {
-                              const input = fileInputRef.current;
-                              if (input) {
-                                const dataTransfer = new DataTransfer();
-                                dataTransfer.items.add(file);
-                                input.files = dataTransfer.files;
-                                handleFileUpload({ target: input } as any, 'hero-background');
-                              }
-                            }
-                          }}
-                        >
-                          <input
-                            type="text"
-                            value={siteContent.hero.backgroundImage}
-                            onChange={(e) => handleInlineEdit('hero', 'backgroundImage', e.target.value)}
-                            className="w-full bg-transparent"
-                            disabled={previewMode}
-                          />
-                          {isDragging && (
-                            <div className="absolute inset-0 bg-purple-100 bg-opacity-50 flex items-center justify-center rounded-lg">
-                              <p className="text-purple-600 font-medium">Solte a imagem aqui</p>
-                            </div>
-                          )}
-                        </div>
-                        <label className="flex items-center px-4 py-2 bg-purple-100 text-purple-700 rounded-lg cursor-pointer hover:bg-purple-200">
-                          <Upload className="h-5 w-5 mr-2" />
-                          Upload
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleFileUpload(e, 'hero-background')}
-                            disabled={previewMode}
-                          />
-                        </label>
-                      </div>
                     </div>
                   </div>
                 </div>

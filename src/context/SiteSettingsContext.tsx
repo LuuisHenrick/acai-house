@@ -5,6 +5,7 @@ interface SiteSettings {
   logo_url: string;
   site_name: string;
   logo_alt_text: string;
+  hero_background_url: string;
 }
 
 interface SiteSettingsContextType {
@@ -17,7 +18,8 @@ interface SiteSettingsContextType {
 const defaultSettings: SiteSettings = {
   logo_url: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&q=80&w=100&h=100',
   site_name: 'Açaí House',
-  logo_alt_text: 'Açaí House Logo'
+  logo_alt_text: 'Açaí House Logo',
+  hero_background_url: 'https://images.unsplash.com/photo-1596463059283-da257325bab8?auto=format&fit=crop&q=80'
 };
 
 const SiteSettingsContext = createContext<SiteSettingsContextType | undefined>(undefined);
@@ -31,7 +33,7 @@ export function SiteSettingsProvider({ children }: { children: React.ReactNode }
       const { data, error } = await supabase
         .from('site_settings')
         .select('setting_key, setting_value')
-        .in('setting_key', ['logo_url', 'site_name', 'logo_alt_text']);
+        .in('setting_key', ['logo_url', 'site_name', 'logo_alt_text', 'hero_background_url']);
 
       if (error) throw error;
 
@@ -43,7 +45,8 @@ export function SiteSettingsProvider({ children }: { children: React.ReactNode }
       setSettings({
         logo_url: settingsMap.logo_url || defaultSettings.logo_url,
         site_name: settingsMap.site_name || defaultSettings.site_name,
-        logo_alt_text: settingsMap.logo_alt_text || defaultSettings.logo_alt_text
+        logo_alt_text: settingsMap.logo_alt_text || defaultSettings.logo_alt_text,
+        hero_background_url: settingsMap.hero_background_url || defaultSettings.hero_background_url
       });
     } catch (error) {
       console.error('Error loading site settings:', error);
