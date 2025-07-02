@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Timer, Gift, Share2, ShoppingBag, Shield, Truck } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { supabase } from '../lib/supabase';
+import { supabase, testSupabaseConnection, isSupabaseConfigured } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
 interface Promotion {
@@ -76,6 +76,7 @@ export default function Promotions() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSupabaseAvailable, setIsSupabaseAvailable] = useState(false);
 
   useEffect(() => {
     loadPromotions();
@@ -83,6 +84,26 @@ export default function Promotions() {
 
   const loadPromotions = async () => {
     try {
+      // Verificar se o Supabase está configurado
+      if (!isSupabaseConfigured()) {
+        console.warn('Supabase is not properly configured, hiding promotions section');
+        setPromotions([]);
+        setIsSupabaseAvailable(false);
+        setIsLoading(false);
+        return;
+      }
+
+      // Testar a conexão com timeout reduzido
+      const connectionOk = await testSupabaseConnection(3000);
+      setIsSupabaseAvailable(connectionOk);
+      
+      if (!connectionOk) {
+        console.warn('Supabase connection failed, hiding promotions section');
+        setPromotions([]);
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('promotions')
         .select('*')
@@ -102,8 +123,8 @@ export default function Promotions() {
           return;
         }
         
-        // Outros erros
-        toast.error('Erro ao carregar promoções');
+        // Outros erros - não mostrar toast para não incomodar o usuário
+        console.warn('Error loading promotions, hiding section:', error.message);
         setPromotions([]);
         return;
       }
@@ -112,13 +133,15 @@ export default function Promotions() {
     } catch (error) {
       console.error('Unexpected error loading promotions:', error);
       
+      // Não mostrar toast para erros de conexão para não incomodar o usuário
       if (error instanceof TypeError && error.message.includes('fetch')) {
         console.warn('Network error loading promotions, hiding section');
       } else {
-        toast.error('Erro ao carregar promoções');
+        console.warn('Unexpected error loading promotions, hiding section');
       }
       
       setPromotions([]);
+      setIsSupabaseAvailable(false);
     } finally {
       setIsLoading(false);
     }

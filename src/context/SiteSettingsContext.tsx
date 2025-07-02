@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase, testSupabaseConnection } from '../lib/supabase';
+import { supabase, testSupabaseConnection, isSupabaseConfigured } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
 interface SiteSettings {
@@ -14,6 +14,7 @@ interface SiteSettingsContextType {
   updateSetting: (key: string, value: string) => Promise<void>;
   refreshSettings: () => Promise<void>;
   isLoading: boolean;
+  isSupabaseAvailable: boolean;
 }
 
 const defaultSettings: SiteSettings = {
@@ -28,14 +29,25 @@ const SiteSettingsContext = createContext<SiteSettingsContextType | undefined>(u
 export function SiteSettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<SiteSettings>(defaultSettings);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSupabaseAvailable, setIsSupabaseAvailable] = useState(false);
 
   const loadSettings = async () => {
     try {
-      // Primeiro, testar a conexão
-      const connectionOk = await testSupabaseConnection();
+      // Verificar se o Supabase está configurado
+      if (!isSupabaseConfigured()) {
+        console.warn('Supabase is not properly configured, using default settings');
+        setSettings(defaultSettings);
+        setIsSupabaseAvailable(false);
+        setIsLoading(false);
+        return;
+      }
+
+      // Testar a conexão com timeout reduzido
+      const connectionOk = await testSupabaseConnection(3000);
+      setIsSupabaseAvailable(connectionOk);
+      
       if (!connectionOk) {
         console.warn('Supabase connection failed, using default settings');
-        toast.error('Não foi possível carregar as configurações do site. Usando configurações padrão.');
         setSettings(defaultSettings);
         setIsLoading(false);
         return;
@@ -49,13 +61,15 @@ export function SiteSettingsProvider({ children }: { children: React.ReactNode }
       if (error) {
         console.error('Error loading site settings:', error);
         
-        // Verificar se é erro de política RLS
-        if (error.code === 'PGRST116' || error.message.includes('policy')) {
-          toast.error('Erro de permissão ao carregar configurações. Verifique as políticas RLS no Supabase.');
-        } else {
-          toast.error('Não foi possível carregar as configurações do site.');
+        // Verificar se é erro de tabela não encontrada
+        if (error.code === 'PGRST116' || error.message.includes('relation') || error.message.includes('does not exist')) {
+          console.warn('Site settings table not found, using defaults');
+          setSettings(defaultSettings);
+          return;
         }
         
+        // Outros erros
+        console.warn('Error loading site settings, using defaults:', error.message);
         setSettings(defaultSettings);
         return;
       }
@@ -80,20 +94,19 @@ export function SiteSettingsProvider({ children }: { children: React.ReactNode }
 
     } catch (error) {
       console.error('Unexpected error loading site settings:', error);
-      
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        toast.error('Erro de conexão. Verifique sua internet e as configurações do Supabase.');
-      } else {
-        toast.error('Não foi possível carregar as configurações do site.');
-      }
-      
       setSettings(defaultSettings);
+      setIsSupabaseAvailable(false);
     } finally {
       setIsLoading(false);
     }
   };
 
   const updateSetting = async (key: string, value: string) => {
+    if (!isSupabaseAvailable) {
+      toast.error('Supabase não está disponível. Não é possível salvar configurações.');
+      throw new Error('Supabase not available');
+    }
+
     try {
       const user = (await supabase.auth.getUser()).data.user;
       
@@ -145,7 +158,8 @@ export function SiteSettingsProvider({ children }: { children: React.ReactNode }
       settings,
       updateSetting,
       refreshSettings,
-      isLoading
+      isLoading,
+      isSupabaseAvailable
     }}>
       {children}
     </SiteSettingsContext.Provider>

@@ -29,16 +29,31 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// Função para testar a conexão
-export const testSupabaseConnection = async () => {
+// Função para testar a conexão com timeout e melhor tratamento de erros
+export const testSupabaseConnection = async (timeoutMs: number = 5000) => {
   try {
-    const { data, error } = await supabase
+    // Criar uma Promise com timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Connection timeout')), timeoutMs);
+    });
+
+    // Tentar fazer uma consulta simples
+    const queryPromise = supabase
       .from('site_settings')
       .select('setting_key')
       .limit(1);
+
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
     
     if (error) {
       console.error('Supabase connection test failed:', error);
+      
+      // Verificar tipos específicos de erro
+      if (error.code === 'PGRST116') {
+        console.warn('Table does not exist, but connection is working');
+        return true; // Conexão funciona, apenas a tabela não existe
+      }
+      
       return false;
     }
     
@@ -46,6 +61,23 @@ export const testSupabaseConnection = async () => {
     return true;
   } catch (error) {
     console.error('Supabase connection test error:', error);
+    
+    // Verificar se é erro de rede
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.warn('Network error - Supabase may be unreachable');
+    } else if (error instanceof Error && error.message === 'Connection timeout') {
+      console.warn('Connection timeout - Supabase is taking too long to respond');
+    }
+    
     return false;
   }
+};
+
+// Função para verificar se o Supabase está configurado corretamente
+export const isSupabaseConfigured = () => {
+  return supabaseUrl && 
+         supabaseAnonKey && 
+         supabaseUrl !== 'YOUR_SUPABASE_URL' && 
+         supabaseAnonKey !== 'YOUR_SUPABASE_ANON_KEY' &&
+         supabaseUrl.includes('supabase.co');
 };
