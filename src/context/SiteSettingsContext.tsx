@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase, testSupabaseConnection, isSupabaseConfigured } from '../lib/supabase';
-import { StorageService } from '../lib/storage';
 import toast from 'react-hot-toast';
 
 interface SiteSettings {
@@ -52,13 +51,6 @@ export function SiteSettingsProvider({ children }: { children: React.ReactNode }
         setSettings(defaultSettings);
         setIsLoading(false);
         return;
-      }
-
-      // Ensure storage bucket exists
-      try {
-        await StorageService.createBucketIfNotExists('site-images');
-      } catch (error) {
-        console.warn('Could not create storage bucket:', error);
       }
 
       const { data, error } = await supabase

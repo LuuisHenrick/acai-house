@@ -83,25 +83,4 @@ export class StorageService {
       throw error;
     }
   }
-  
-  static async createBucketIfNotExists(bucketName: string): Promise<void> {
-    try {
-      const { data: buckets } = await supabase.storage.listBuckets();
-      const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
-      
-      if (!bucketExists) {
-        const { error } = await supabase.storage.createBucket(bucketName, {
-          public: true,
-          allowedMimeTypes: DEFAULT_OPTIONS.allowedTypes,
-          fileSizeLimit: DEFAULT_OPTIONS.maxSizeBytes
-        });
-        
-        if (error) {
-          console.error('Error creating bucket:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Bucket creation error:', error);
-    }
-  }
 }
