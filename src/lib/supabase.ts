@@ -39,7 +39,7 @@ export const testSupabaseConnection = async (timeoutMs: number = 5000) => {
 
     // Tentar fazer uma consulta simples para uma tabela que sempre existe
     const queryPromise = supabase
-      .from('auth.users')
+      .from('site_settings')
       .select('id')
       .limit(1);
 
