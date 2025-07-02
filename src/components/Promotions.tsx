@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Timer, Gift, Share2, ShoppingBag, Shield, Truck } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 interface Promotion {
   id: string;
@@ -91,10 +92,33 @@ export default function Promotions() {
         .order('is_flash', { ascending: false })
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading promotions:', error);
+        
+        // Verificar se é erro de tabela não encontrada
+        if (error.code === 'PGRST116' || error.message.includes('relation') || error.message.includes('does not exist')) {
+          console.warn('Promotions table not found, hiding promotions section');
+          setPromotions([]);
+          return;
+        }
+        
+        // Outros erros
+        toast.error('Erro ao carregar promoções');
+        setPromotions([]);
+        return;
+      }
+
       setPromotions(data || []);
     } catch (error) {
-      console.error('Error loading promotions:', error);
+      console.error('Unexpected error loading promotions:', error);
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.warn('Network error loading promotions, hiding section');
+      } else {
+        toast.error('Erro ao carregar promoções');
+      }
+      
+      setPromotions([]);
     } finally {
       setIsLoading(false);
     }
@@ -111,13 +135,14 @@ export default function Promotions() {
       });
     } else {
       navigator.clipboard.writeText(text);
-      alert('Link copiado para a área de transferência!');
+      toast.success('Link copiado para a área de transferência!');
     }
   };
 
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
+    toast.success('Cupom copiado!');
     setTimeout(() => setCopiedCode(null), 2000);
   };
 

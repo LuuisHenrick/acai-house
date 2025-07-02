@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, testSupabaseConnection } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 interface SiteSettings {
   logo_url: string;
@@ -30,17 +31,45 @@ export function SiteSettingsProvider({ children }: { children: React.ReactNode }
 
   const loadSettings = async () => {
     try {
+      // Primeiro, testar a conexão
+      const connectionOk = await testSupabaseConnection();
+      if (!connectionOk) {
+        console.warn('Supabase connection failed, using default settings');
+        toast.error('Não foi possível carregar as configurações do site. Usando configurações padrão.');
+        setSettings(defaultSettings);
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('site_settings')
         .select('setting_key, setting_value')
         .in('setting_key', ['logo_url', 'site_name', 'logo_alt_text', 'hero_background_url']);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading site settings:', error);
+        
+        // Verificar se é erro de política RLS
+        if (error.code === 'PGRST116' || error.message.includes('policy')) {
+          toast.error('Erro de permissão ao carregar configurações. Verifique as políticas RLS no Supabase.');
+        } else {
+          toast.error('Não foi possível carregar as configurações do site.');
+        }
+        
+        setSettings(defaultSettings);
+        return;
+      }
 
-      const settingsMap = data?.reduce((acc, item) => {
+      if (!data || data.length === 0) {
+        console.warn('No site settings found, using defaults');
+        setSettings(defaultSettings);
+        return;
+      }
+
+      const settingsMap = data.reduce((acc, item) => {
         acc[item.setting_key] = item.setting_value;
         return acc;
-      }, {} as Record<string, string>) || {};
+      }, {} as Record<string, string>);
 
       setSettings({
         logo_url: settingsMap.logo_url || defaultSettings.logo_url,
@@ -48,8 +77,16 @@ export function SiteSettingsProvider({ children }: { children: React.ReactNode }
         logo_alt_text: settingsMap.logo_alt_text || defaultSettings.logo_alt_text,
         hero_background_url: settingsMap.hero_background_url || defaultSettings.hero_background_url
       });
+
     } catch (error) {
-      console.error('Error loading site settings:', error);
+      console.error('Unexpected error loading site settings:', error);
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        toast.error('Erro de conexão. Verifique sua internet e as configurações do Supabase.');
+      } else {
+        toast.error('Não foi possível carregar as configurações do site.');
+      }
+      
       setSettings(defaultSettings);
     } finally {
       setIsLoading(false);
@@ -68,15 +105,28 @@ export function SiteSettingsProvider({ children }: { children: React.ReactNode }
           updated_by: user?.id
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating setting:', error);
+        toast.error('Erro ao salvar configuração.');
+        throw error;
+      }
 
       // Update local state
       setSettings(prev => ({
         ...prev,
         [key]: value
       }));
+
+      toast.success('Configuração salva com sucesso!');
     } catch (error) {
       console.error('Error updating setting:', error);
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        toast.error('Erro de conexão ao salvar configuração.');
+      } else {
+        toast.error('Erro ao salvar configuração.');
+      }
+      
       throw error;
     }
   };
