@@ -9,6 +9,7 @@ import AdminPromotions from './AdminPromotions';
 import AdminProducts from './AdminProducts';
 import AdminSettings from './AdminSettings';
 import AdminAddons from './AdminAddons';
+import CategoryManager from './CategoryManager';
 import HeroImageUpload from './HeroImageUpload';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 import {
@@ -111,7 +112,7 @@ const AUTOSAVE_DELAY = 3000; // 3 seconds
 export default function AdminDashboard() {
   const { logout, user } = useAuth();
   const { settings, refreshSettings } = useSiteSettings();
-  const [activeSection, setActiveSection] = useState<'content' | 'products' | 'promotions' | 'addons' | 'location' | 'settings'>('content');
+  const [activeSection, setActiveSection] = useState<'content' | 'products' | 'promotions' | 'addons' | 'categories' | 'location' | 'settings'>('content');
   const [siteContent, setSiteContent] = useState<SiteContent>(initialSiteContent);
   const [contentHistory, setContentHistory] = useState<SiteContent[]>([initialSiteContent]);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -400,6 +401,7 @@ export default function AdminDashboard() {
     { id: 'products', label: 'Produtos', icon: Package },
     { id: 'promotions', label: 'Promoções', icon: FileText },
     { id: 'addons', label: 'Acréscimos', icon: Tag },
+    { id: 'categories', label: 'Categorias', icon: Tag },
     { id: 'location', label: 'Localização', icon: MapPin },
     { id: 'settings', label: 'Configurações', icon: Settings }
   ];
@@ -707,6 +709,9 @@ export default function AdminDashboard() {
 
             {/* Addons Section */}
             {activeSection === 'addons' && <AdminAddons />}
+
+            {/* Categories Section */}
+            {activeSection === 'categories' && <CategoryManager />}
 
             {/* Settings Section */}
             {activeSection === 'settings' && <AdminSettings />}
