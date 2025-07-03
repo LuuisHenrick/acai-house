@@ -8,11 +8,24 @@ interface Product {
   id: string;
   name: string;
   description: string;
-  category: string;
-  image_url: string;
+  category_id: string;
   active: boolean;
   sizes: ProductSize[];
   addon_groups: AddonGroup[];
+  images: ProductImage[];
+  product_categories?: {
+    name: string;
+    slug: string;
+  };
+}
+
+interface ProductImage {
+  id: string;
+  image_url: string;
+  alt_text: string;
+  display_order: number;
+  is_primary: boolean;
+  is_active: boolean;
 }
 
 interface ProductSize {
@@ -38,6 +51,14 @@ interface AddonOption {
   name: string;
   price: number;
   active: boolean;
+}
+
+interface ProductCategory {
+  id: string;
+  name: string;
+  slug: string;
+  color: string;
+  is_active: boolean;
 }
 
 function ProductModal({ 
@@ -119,6 +140,11 @@ function ProductModal({
     return selectedSize.price + addonTotal;
   };
 
+  const getPrimaryImage = () => {
+    const primaryImage = product.images?.find(img => img.is_primary && img.is_active);
+    return primaryImage?.image_url || 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80';
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -136,11 +162,17 @@ function ProductModal({
             </button>
           </div>
 
-          <img
-            src={product.image_url}
-            alt={product.name}
-            className="w-full h-64 object-cover rounded-lg mb-6"
-          />
+          <div className="aspect-video w-full mb-6 rounded-lg overflow-hidden">
+            <img
+              src={getPrimaryImage()}
+              alt={product.name}
+              className="w-full h-full object-cover"
+              style={{ 
+                objectFit: 'cover',
+                objectPosition: 'center'
+              }}
+            />
+          </div>
 
           {/* Size Selection */}
           <div className="mb-6">
@@ -257,22 +289,51 @@ function ProductModal({
 export default function Menu() {
   const { addToCart } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
+    loadCategories();
     loadProducts();
   }, []);
 
+  const loadCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('product_categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      setCategories(data || []);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
+
   const loadProducts = async () => {
     try {
-      // Load products with sizes and addon groups
+      // Load products with sizes, addon groups, and images
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select(`
           *,
-          product_sizes (*)
+          product_sizes (*),
+          product_images!product_images_product_id_fkey (
+            id,
+            image_url,
+            alt_text,
+            display_order,
+            is_primary,
+            is_active
+          ),
+          product_categories (
+            name,
+            slug
+          )
         `)
         .eq('active', true)
         .order('display_order', { ascending: true });
@@ -295,6 +356,7 @@ export default function Menu() {
           return {
             ...product,
             sizes: (product.product_sizes || []).filter((size: any) => size.active),
+            images: (product.product_images || []).filter((img: any) => img.is_active),
             addon_groups: addonGroupsData?.map((item: any) => ({
               ...item.addon_groups,
               options: item.addon_groups.addon_options.filter((option: any) => option.active)
@@ -313,28 +375,27 @@ export default function Menu() {
   };
 
   const handleAddToCart = (product: Product, size: ProductSize, addons: AddonOption[]) => {
+    const primaryImage = product.images?.find(img => img.is_primary)?.image_url || 
+                        'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80';
+
     addToCart({
       id: product.id,
       name: product.name,
       price: size.price,
-      image: product.image_url
+      image: primaryImage
     }, size.size_name, addons);
     
     toast.success(`${product.name} adicionado ao carrinho!`);
   };
 
-  const categories = [
-    { value: 'all', label: 'Todas as categorias' },
-    { value: 'tradicional', label: 'Tradicional' },
-    { value: 'especial', label: 'Especial' },
-    { value: 'premium', label: 'Premium' },
-    { value: 'bebidas', label: 'Bebidas' },
-    { value: 'sobremesas', label: 'Sobremesas' }
-  ];
-
   const filteredProducts = products.filter(product => 
-    selectedCategory === 'all' || product.category === selectedCategory
+    selectedCategory === 'all' || product.category_id === selectedCategory
   );
+
+  const getPrimaryImage = (product: Product) => {
+    const primaryImage = product.images?.find(img => img.is_primary && img.is_active);
+    return primaryImage?.image_url || 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80';
+  };
 
   if (isLoading) {
     return (
@@ -355,17 +416,35 @@ export default function Menu() {
         
         {/* Category Filter */}
         <div className="flex justify-center mb-8">
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-4 py-2 rounded-full border border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          >
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setSelectedCategory('all')}
+              className={`px-4 py-2 rounded-full border transition ${
+                selectedCategory === 'all'
+                  ? 'bg-purple-600 text-white border-purple-600'
+                  : 'bg-white text-gray-700 border-gray-300 hover:border-purple-300'
+              }`}
+            >
+              Todas as categorias
+            </button>
             {categories.map(category => (
-              <option key={category.value} value={category.value}>
-                {category.label}
-              </option>
+              <button
+                key={category.id}
+                onClick={() => setSelectedCategory(category.id)}
+                className={`px-4 py-2 rounded-full border transition ${
+                  selectedCategory === category.id
+                    ? 'text-white border-transparent'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                }`}
+                style={{
+                  backgroundColor: selectedCategory === category.id ? category.color : undefined,
+                  borderColor: selectedCategory === category.id ? category.color : undefined
+                }}
+              >
+                {category.name}
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         {/* Products Grid */}
@@ -376,11 +455,17 @@ export default function Menu() {
               className="bg-white rounded-lg shadow-lg overflow-hidden transform hover:scale-105 transition cursor-pointer"
               onClick={() => setSelectedProduct(product)}
             >
-              <img
-                src={product.image_url}
-                alt={product.name}
-                className="w-full h-48 object-cover"
-              />
+              <div className="aspect-video">
+                <img
+                  src={getPrimaryImage(product)}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  style={{ 
+                    objectFit: 'cover',
+                    objectPosition: 'center'
+                  }}
+                />
+              </div>
               <div className="p-6">
                 <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
                 <p className="text-gray-600 mb-4">{product.description}</p>

@@ -13,22 +13,36 @@ import {
   GripVertical,
   Eye,
   Copy,
-  Check
+  Check,
+  Images
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import ProductImageGallery from './ProductImageGallery';
 
 interface Product {
   id: string;
   name: string;
   description: string;
   category: string;
+  category_id: string;
   image_url: string;
   active: boolean;
   display_order: number;
   sizes: ProductSize[];
   addon_groups: AddonGroup[];
+  images?: ProductImage[];
+}
+
+interface ProductImage {
+  id: string;
+  product_id: string;
+  image_url: string;
+  alt_text: string;
+  display_order: number;
+  is_primary: boolean;
+  is_active: boolean;
 }
 
 interface ProductSize {
@@ -62,20 +76,19 @@ interface AddonOption {
 interface ProductFormData {
   name: string;
   description: string;
-  category: string;
-  image_url: string;
+  category_id: string;
   active: boolean;
   sizes: ProductSize[];
   addon_groups: AddonGroup[];
 }
 
-const categories = [
-  { value: 'tradicional', label: 'Tradicional' },
-  { value: 'especial', label: 'Especial' },
-  { value: 'premium', label: 'Premium' },
-  { value: 'bebidas', label: 'Bebidas' },
-  { value: 'sobremesas', label: 'Sobremesas' }
-];
+interface ProductCategory {
+  id: string;
+  name: string;
+  slug: string;
+  color: string;
+  is_active: boolean;
+}
 
 const defaultSizes: ProductSize[] = [
   { id: '', size_name: 'P', size_label: 'Pequeno (300ml)', price: 12.90, active: true, display_order: 1 },
@@ -87,44 +100,34 @@ function ProductModal({
   product, 
   onClose, 
   onSave,
-  availableAddonGroups 
+  availableAddonGroups,
+  categories 
 }: { 
   product: Product | null; 
   onClose: () => void; 
   onSave: (data: ProductFormData) => Promise<void>;
   availableAddonGroups: AddonGroup[];
+  categories: ProductCategory[];
 }) {
   const [formData, setFormData] = useState<ProductFormData>(
     product ? {
       name: product.name,
       description: product.description,
-      category: product.category,
-      image_url: product.image_url,
+      category_id: product.category_id || '',
       active: product.active,
       sizes: product.sizes.length > 0 ? product.sizes : defaultSizes,
       addon_groups: product.addon_groups
     } : {
       name: '',
       description: '',
-      category: 'tradicional',
-      image_url: '',
+      category_id: '',
       active: true,
       sizes: defaultSizes,
       addon_groups: []
     }
   );
   const [isLoading, setIsLoading] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleImageUpload = (file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreviewImage(reader.result as string);
-      setFormData({ ...formData, image_url: reader.result as string });
-    };
-    reader.readAsDataURL(file);
-  };
+  const [activeTab, setActiveTab] = useState<'info' | 'images'>('info');
 
   const handleSizeChange = (index: number, field: keyof ProductSize, value: any) => {
     const newSizes = [...formData.sizes];
@@ -177,6 +180,11 @@ function ProductModal({
       return;
     }
 
+    if (!formData.category_id) {
+      toast.error('Selecione uma categoria');
+      return;
+    }
+
     setIsLoading(true);
     try {
       await onSave(formData);
@@ -190,7 +198,7 @@ function ProductModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center p-6 border-b">
           <h3 className="text-xl font-semibold">
             {product ? 'Editar Produto' : 'Novo Produto'}
@@ -203,229 +211,262 @@ function ProductModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Informações Básicas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome do Produto *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Ex: Açaí Premium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Categoria *
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  {categories.map(cat => (
-                    <option key={cat.value} value={cat.value}>{cat.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Descrição
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  rows={4}
-                  placeholder="Descreva o produto..."
-                />
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.active}
-                  onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                  className="mr-2 h-4 w-4 text-purple-600 rounded"
-                />
-                <label className="text-sm font-medium text-gray-700">
-                  Produto Ativo
-                </label>
-              </div>
-            </div>
-
-            {/* Imagem */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Imagem do Produto
-              </label>
-              <div 
-                className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center cursor-pointer overflow-hidden border-2 border-dashed border-gray-300 hover:border-purple-400 transition"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {(previewImage || formData.image_url) ? (
-                  <img
-                    src={previewImage || formData.image_url}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="text-center">
-                    <Camera className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">Clique para adicionar uma imagem</p>
-                  </div>
-                )}
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageUpload(file);
-                }}
-              />
-              <input
-                type="url"
-                placeholder="Ou cole uma URL de imagem"
-                value={formData.image_url}
-                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                className="w-full mt-2 p-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          {/* Tamanhos e Preços */}
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="text-lg font-medium">Tamanhos e Preços</h4>
+        {/* Tabs */}
+        <div className="border-b">
+          <nav className="flex space-x-8 px-6">
+            <button
+              onClick={() => setActiveTab('info')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'info'
+                  ? 'border-purple-500 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Package className="h-5 w-5 inline mr-2" />
+              Informações
+            </button>
+            {product && (
               <button
-                type="button"
-                onClick={addSize}
-                className="bg-purple-100 text-purple-700 px-3 py-1 rounded-lg text-sm hover:bg-purple-200 transition"
+                onClick={() => setActiveTab('images')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'images'
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
               >
-                <Plus className="h-4 w-4 inline mr-1" />
-                Adicionar Tamanho
+                <Images className="h-5 w-5 inline mr-2" />
+                Galeria de Imagens
               </button>
-            </div>
-            <div className="space-y-3">
-              {formData.sizes.map((size, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg">
-                  <input
-                    type="text"
-                    placeholder="Nome (ex: P, M, G)"
-                    value={size.size_name}
-                    onChange={(e) => handleSizeChange(index, 'size_name', e.target.value)}
-                    className="p-2 border rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Descrição (ex: Pequeno 300ml)"
-                    value={size.size_label}
-                    onChange={(e) => handleSizeChange(index, 'size_label', e.target.value)}
-                    className="p-2 border rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                  <div className="relative">
-                    <span className="absolute left-3 top-2 text-gray-500">R$</span>
+            )}
+          </nav>
+        </div>
+
+        <div className="p-6">
+          {activeTab === 'info' ? (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Informações Básicas */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nome do Produto *
+                    </label>
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={size.price}
-                      onChange={(e) => handleSizeChange(index, 'price', parseFloat(e.target.value) || 0)}
-                      className="w-full pl-8 p-2 border rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      type="text"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Ex: Açaí Premium"
                     />
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={size.active}
-                        onChange={(e) => handleSizeChange(index, 'active', e.target.checked)}
-                        className="mr-1"
-                      />
-                      <span className="text-sm">Ativo</span>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Categoria *
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => removeSize(index)}
-                      className="p-1 text-red-500 hover:text-red-700"
+                    <select
+                      value={formData.category_id}
+                      onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      required
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                      <option value="">Selecione uma categoria</option>
+                      {categories.filter(cat => cat.is_active).map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Descrição
+                    </label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      rows={4}
+                      placeholder="Descreva o produto..."
+                    />
+                  </div>
+
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.active}
+                      onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                      className="mr-2 h-4 w-4 text-purple-600 rounded"
+                    />
+                    <label className="text-sm font-medium text-gray-700">
+                      Produto Ativo
+                    </label>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Grupos de Adicionais */}
-          <div>
-            <h4 className="text-lg font-medium mb-4">Grupos de Adicionais</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {availableAddonGroups.map(group => (
-                <label
-                  key={group.id}
-                  className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={formData.addon_groups.some(g => g.id === group.id)}
-                    onChange={() => toggleAddonGroup(group)}
-                    className="mr-3 h-4 w-4 text-purple-600 rounded"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium">{group.name}</div>
-                    <div className="text-sm text-gray-600">{group.description}</div>
-                    <div className="text-xs text-gray-500">
-                      {group.is_required ? 'Obrigatório' : 'Opcional'} • 
-                      Min: {group.min_selections} • 
-                      Max: {group.max_selections || 'Ilimitado'}
-                    </div>
+                {/* Preview da Imagem Principal */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Imagem Principal
+                  </label>
+                  <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300">
+                    {product?.images?.find(img => img.is_primary)?.image_url ? (
+                      <img
+                        src={product.images.find(img => img.is_primary)?.image_url}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        style={{ 
+                          objectFit: 'cover',
+                          objectPosition: 'center'
+                        }}
+                      />
+                    ) : (
+                      <div className="text-center">
+                        <Camera className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">
+                          {product ? 'Adicione imagens na aba "Galeria"' : 'Salve o produto para adicionar imagens'}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </label>
-              ))}
-            </div>
-          </div>
+                </div>
+              </div>
 
-          {/* Botões */}
-          <div className="flex justify-end space-x-4 pt-4 border-t">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-2 text-gray-600 hover:text-gray-800 transition"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-            >
-              {isLoading ? (
-                <>
-                  <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></div>
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Salvar
-                </>
-              )}
-            </button>
-          </div>
-        </form>
+              {/* Tamanhos e Preços */}
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-lg font-medium">Tamanhos e Preços</h4>
+                  <button
+                    type="button"
+                    onClick={addSize}
+                    className="bg-purple-100 text-purple-700 px-3 py-1 rounded-lg text-sm hover:bg-purple-200 transition"
+                  >
+                    <Plus className="h-4 w-4 inline mr-1" />
+                    Adicionar Tamanho
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {formData.sizes.map((size, index) => (
+                    <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg">
+                      <input
+                        type="text"
+                        placeholder="Nome (ex: P, M, G)"
+                        value={size.size_name}
+                        onChange={(e) => handleSizeChange(index, 'size_name', e.target.value)}
+                        className="p-2 border rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Descrição (ex: Pequeno 300ml)"
+                        value={size.size_label}
+                        onChange={(e) => handleSizeChange(index, 'size_label', e.target.value)}
+                        className="p-2 border rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-gray-500">R$</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={size.price}
+                          onChange={(e) => handleSizeChange(index, 'price', parseFloat(e.target.value) || 0)}
+                          className="w-full pl-8 p-2 border rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={size.active}
+                            onChange={(e) => handleSizeChange(index, 'active', e.target.checked)}
+                            className="mr-1"
+                          />
+                          <span className="text-sm">Ativo</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => removeSize(index)}
+                          className="p-1 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Grupos de Adicionais */}
+              <div>
+                <h4 className="text-lg font-medium mb-4">Grupos de Adicionais</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {availableAddonGroups.map(group => (
+                    <label
+                      key={group.id}
+                      className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.addon_groups.some(g => g.id === group.id)}
+                        onChange={() => toggleAddonGroup(group)}
+                        className="mr-3 h-4 w-4 text-purple-600 rounded"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">{group.name}</div>
+                        <div className="text-sm text-gray-600">{group.description}</div>
+                        <div className="text-xs text-gray-500">
+                          {group.is_required ? 'Obrigatório' : 'Opcional'} • 
+                          Min: {group.min_selections} • 
+                          Max: {group.max_selections || 'Ilimitado'}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Botões */}
+              <div className="flex justify-end space-x-4 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-2 text-gray-600 hover:text-gray-800 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></div>
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Salvar
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          ) : (
+            // Galeria de Imagens
+            product && (
+              <ProductImageGallery
+                productId={product.id}
+                productName={product.name}
+                onImagesChange={(images) => {
+                  // Update product images in parent component if needed
+                }}
+              />
+            )
+          )}
+        </div>
       </div>
     </div>
   );
@@ -433,23 +474,38 @@ function ProductModal({
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [addonGroups, setAddonGroups] = useState<AddonGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<Product | null | undefined>(undefined);
 
   useEffect(() => {
     loadProducts();
+    loadCategories();
     loadAddonGroups();
   }, []);
 
   const loadProducts = async () => {
     try {
-      // Carregar produtos com tamanhos
+      // Carregar produtos com tamanhos e imagens
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select(`
           *,
-          product_sizes (*)
+          product_sizes (*),
+          product_images!product_images_product_id_fkey (
+            id,
+            image_url,
+            alt_text,
+            display_order,
+            is_primary,
+            is_active
+          ),
+          product_categories (
+            id,
+            name,
+            color
+          )
         `)
         .order('display_order', { ascending: true });
 
@@ -471,7 +527,8 @@ export default function AdminProducts() {
           return {
             ...product,
             sizes: product.product_sizes || [],
-            addon_groups: addonGroupsData?.map(item => item.addon_groups).filter(Boolean) || []
+            images: (product.product_images || []).filter((img: any) => img.is_active),
+            addon_groups: addonGroupsData?.map((item: any) => item.addon_groups).filter(Boolean) || []
           };
         })
       );
@@ -482,6 +539,20 @@ export default function AdminProducts() {
       toast.error('Erro ao carregar produtos');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('product_categories')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      setCategories(data || []);
+    } catch (error) {
+      console.error('Error loading categories:', error);
     }
   };
 
@@ -513,8 +584,7 @@ export default function AdminProducts() {
           .update({
             name: formData.name,
             description: formData.description,
-            category: formData.category,
-            image_url: formData.image_url,
+            category_id: formData.category_id,
             active: formData.active,
             updated_by: user?.id
           })
@@ -564,8 +634,7 @@ export default function AdminProducts() {
           .insert({
             name: formData.name,
             description: formData.description,
-            category: formData.category,
-            image_url: formData.image_url,
+            category_id: formData.category_id,
             active: formData.active,
             display_order: products.length + 1,
             created_by: user?.id
@@ -647,6 +716,15 @@ export default function AdminProducts() {
     }
   };
 
+  const getPrimaryImage = (product: Product) => {
+    const primaryImage = product.images?.find(img => img.is_primary);
+    return primaryImage?.image_url || product.image_url || 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80';
+  };
+
+  const getCategoryInfo = (categoryId: string) => {
+    return categories.find(cat => cat.id === categoryId);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -682,101 +760,123 @@ export default function AdminProducts() {
         </div>
       ) : (
         <div className="grid gap-6">
-          {products.map((product) => (
-            <div key={product.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
-              <div className="md:flex">
-                <div className="md:w-1/4">
-                  <img
-                    src={product.image_url || 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80'}
-                    alt={product.name}
-                    className="w-full h-48 md:h-full object-cover"
-                  />
-                </div>
-                <div className="md:w-3/4 p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-xl font-bold text-gray-900">{product.name}</h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          product.active 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {product.active ? 'Ativo' : 'Inativo'}
-                        </span>
-                        <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-semibold">
-                          {categories.find(c => c.value === product.category)?.label}
-                        </span>
-                      </div>
-                      <p className="text-gray-600 mb-3">{product.description}</p>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => setEditingProduct(product)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition"
-                        title="Editar"
-                      >
-                        <Edit2 className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={() => handleToggleActive(product.id, product.active)}
-                        className="p-2 text-gray-600 hover:bg-gray-50 rounded-full transition"
-                        title={product.active ? 'Desativar' : 'Ativar'}
-                      >
-                        {product.active ? (
-                          <ToggleRight className="h-5 w-5 text-green-600" />
-                        ) : (
-                          <ToggleLeft className="h-5 w-5" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProduct(product.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-full transition"
-                        title="Excluir"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Tamanhos */}
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Tamanhos e Preços</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      {product.sizes.map((size) => (
-                        <div key={size.id} className="bg-gray-50 p-2 rounded">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">{size.size_name}</span>
-                            <span className="text-purple-600 font-bold">
-                              R$ {size.price.toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="text-xs text-gray-500">{size.size_label}</div>
+          {products.map((product) => {
+            const categoryInfo = getCategoryInfo(product.category_id);
+            const primaryImageUrl = getPrimaryImage(product);
+            
+            return (
+              <div key={product.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
+                <div className="md:flex">
+                  <div className="md:w-1/4">
+                    <div className="relative aspect-square">
+                      <img
+                        src={primaryImageUrl}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        style={{ 
+                          objectFit: 'cover',
+                          objectPosition: 'center'
+                        }}
+                      />
+                      {product.images && product.images.length > 1 && (
+                        <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs flex items-center">
+                          <Images className="h-3 w-3 mr-1" />
+                          {product.images.length}
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
-
-                  {/* Grupos de Adicionais */}
-                  {product.addon_groups.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Grupos de Adicionais</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {product.addon_groups.map((group) => (
-                          <span
-                            key={group.id}
-                            className="bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs"
-                          >
-                            {group.name}
+                  <div className="md:w-3/4 p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-2">
+                          <h3 className="text-xl font-bold text-gray-900">{product.name}</h3>
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            product.active 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {product.active ? 'Ativo' : 'Inativo'}
                           </span>
+                          {categoryInfo && (
+                            <span 
+                              className="px-2 py-1 rounded-full text-xs font-semibold text-white"
+                              style={{ backgroundColor: categoryInfo.color }}
+                            >
+                              {categoryInfo.name}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-600 mb-3">{product.description}</p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => setEditingProduct(product)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition"
+                          title="Editar"
+                        >
+                          <Edit2 className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleToggleActive(product.id, product.active)}
+                          className="p-2 text-gray-600 hover:bg-gray-50 rounded-full transition"
+                          title={product.active ? 'Desativar' : 'Ativar'}
+                        >
+                          {product.active ? (
+                            <ToggleRight className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <ToggleLeft className="h-5 w-5" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(product.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-full transition"
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Tamanhos */}
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Tamanhos e Preços</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        {product.sizes.map((size) => (
+                          <div key={size.id} className="bg-gray-50 p-2 rounded">
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium">{size.size_name}</span>
+                              <span className="text-purple-600 font-bold">
+                                R$ {size.price.toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-500">{size.size_label}</div>
+                          </div>
                         ))}
                       </div>
                     </div>
-                  )}
+
+                    {/* Grupos de Adicionais */}
+                    {product.addon_groups.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Grupos de Adicionais</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {product.addon_groups.map((group) => (
+                            <span
+                              key={group.id}
+                              className="bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs"
+                            >
+                              {group.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -786,6 +886,7 @@ export default function AdminProducts() {
           onClose={() => setEditingProduct(undefined)}
           onSave={handleSaveProduct}
           availableAddonGroups={addonGroups}
+          categories={categories}
         />
       )}
     </div>
