@@ -7,7 +7,8 @@ import {
   AlertCircle,
   Loader,
   Eye,
-  Trash2
+  Trash2,
+  RotateCcw
 } from 'lucide-react';
 import { StorageService } from '../../lib/storage';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
@@ -91,9 +92,25 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
     }
   };
 
+  const useLocalBanner = async () => {
+    const localBannerUrl = '/banner-acai-house.jpeg';
+    
+    try {
+      await updateSetting('hero_background_url', localBannerUrl);
+      onImageUpdate(localBannerUrl);
+      toast.success('Banner da Açaí House aplicado como imagem de fundo!');
+    } catch (error) {
+      toast.error('Erro ao aplicar banner local');
+    }
+  };
+
   const openImageInNewTab = () => {
     window.open(currentImageUrl, '_blank');
   };
+
+  // Determinar qual imagem está sendo usada
+  const isUsingLocalBanner = currentImageUrl.includes('banner-acai-house.jpeg');
+  const isUsingDefault = currentImageUrl.includes('unsplash.com');
 
   return (
     <div className="space-y-6">
@@ -114,7 +131,7 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
             alt="Imagem de fundo da hero section"
             className="w-full h-full object-cover"
             onError={(e) => {
-              e.currentTarget.src = 'https://images.unsplash.com/photo-1596463059283-da257325bab8?auto=format&fit=crop&q=80';
+              e.currentTarget.src = '/banner-acai-house.jpeg';
             }}
           />
           
@@ -133,10 +150,26 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
                 className="bg-white text-gray-700 p-2 rounded-full hover:bg-gray-100 transition"
                 title="Restaurar imagem padrão"
               >
-                <Trash2 className="h-5 w-5" />
+                <RotateCcw className="h-5 w-5" />
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Status da Imagem Atual */}
+        <div className="mt-2 text-sm">
+          {isUsingLocalBanner && (
+            <div className="flex items-center text-purple-600">
+              <Check className="h-4 w-4 mr-2" />
+              <span>Usando banner personalizado da Açaí House</span>
+            </div>
+          )}
+          {isUsingDefault && (
+            <div className="flex items-center text-gray-500">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              <span>Usando imagem padrão do sistema</span>
+            </div>
+          )}
         </div>
 
         {/* Loading Overlay */}
@@ -148,6 +181,33 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
             </div>
           </div>
         )}
+      </div>
+
+      {/* Opções Rápidas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <button
+          onClick={useLocalBanner}
+          disabled={isUsingLocalBanner}
+          className="flex items-center justify-center p-4 border-2 border-purple-200 rounded-lg hover:border-purple-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <div className="text-center">
+            <ImageIcon className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+            <p className="font-medium text-purple-600">Usar Banner da Açaí House</p>
+            <p className="text-sm text-gray-500">Banner personalizado importado</p>
+          </div>
+        </button>
+
+        <button
+          onClick={resetToDefault}
+          disabled={isUsingDefault}
+          className="flex items-center justify-center p-4 border-2 border-gray-200 rounded-lg hover:border-gray-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <div className="text-center">
+            <RotateCcw className="h-8 w-8 text-gray-600 mx-auto mb-2" />
+            <p className="font-medium text-gray-600">Usar Imagem Padrão</p>
+            <p className="text-sm text-gray-500">Imagem genérica do sistema</p>
+          </div>
+        </button>
       </div>
 
       {/* Área de Upload */}
@@ -177,7 +237,7 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
           
           <div>
             <p className="text-lg font-medium text-gray-900">
-              {dragActive ? 'Solte a imagem aqui' : 'Arraste uma imagem ou clique para selecionar'}
+              {dragActive ? 'Solte a imagem aqui' : 'Ou faça upload de uma nova imagem'}
             </p>
             <p className="text-sm text-gray-500 mt-1">
               JPG, PNG ou WebP até 3MB
@@ -207,6 +267,7 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
               <li>Prefira imagens horizontais (landscape)</li>
               <li>Evite imagens com muito texto ou detalhes pequenos</li>
               <li>A imagem será exibida com overlay escuro para melhor legibilidade do texto</li>
+              <li>O banner da Açaí House já está otimizado para o site</li>
             </ul>
           </div>
         </div>

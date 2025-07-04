@@ -4,15 +4,21 @@ import { useSiteSettings } from '../context/SiteSettingsContext';
 export default function Hero() {
   const { settings } = useSiteSettings();
 
+  // Use the local banner as fallback if hero_background_url is not set or is the default
+  const backgroundImage = settings.hero_background_url && 
+    !settings.hero_background_url.includes('unsplash.com') 
+    ? settings.hero_background_url 
+    : '/banner-acai-house.jpeg';
+
   return (
     <div className="relative h-screen">
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-500"
         style={{
-          backgroundImage: `url("${settings.hero_background_url}")`,
+          backgroundImage: `url("${backgroundImage}")`,
         }}
       >
-        <div className="absolute inset-0 bg-black bg-opacity-50"></div>
+        <div className="absolute inset-0 bg-black bg-opacity-40"></div>
       </div>
       
       <div className="relative h-full flex items-center justify-center text-center text-white px-4">
