@@ -1,11 +1,22 @@
-import React, { useState } from 'react';
-import { Phone, Mail, MapPin, Clock, Instagram, Facebook, Send } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Phone, Mail, MapPin, Clock, Instagram, Facebook, Send, MessageCircle, Music, ShoppingBag } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface FormData {
   name: string;
   email: string;
   subject: string;
   message: string;
+}
+
+interface ContactSettings {
+  instagram_url: string;
+  facebook_url: string;
+  ifood_url: string;
+  tiktok_url: string;
+  whatsapp_url: string;
+  phone_number: string;
+  email_contact: string;
 }
 
 export default function Contact() {
@@ -16,8 +27,53 @@ export default function Contact() {
     message: ''
   });
 
+  const [contactSettings, setContactSettings] = useState<ContactSettings>({
+    instagram_url: 'https://instagram.com/acaihouse',
+    facebook_url: 'https://facebook.com/acaihouse',
+    ifood_url: '',
+    tiktok_url: '',
+    whatsapp_url: 'https://api.whatsapp.com/send?phone=5531993183738',
+    phone_number: '(31) 99318-3738',
+    email_contact: 'contato@acaihouse.com.br'
+  });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'success' | 'error' | null>(null);
+
+  useEffect(() => {
+    loadContactSettings();
+  }, []);
+
+  const loadContactSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('setting_key, setting_value')
+        .in('setting_key', [
+          'instagram_url', 'facebook_url', 'ifood_url', 
+          'tiktok_url', 'whatsapp_url', 'phone_number', 'email_contact'
+        ]);
+
+      if (error) {
+        console.error('Error loading contact settings:', error);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const settingsMap = data.reduce((acc, item) => {
+          acc[item.setting_key] = item.setting_value || '';
+          return acc;
+        }, {} as Record<string, string>);
+
+        setContactSettings(prev => ({
+          ...prev,
+          ...settingsMap
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading contact settings:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +92,39 @@ export default function Contact() {
     // Reset success message after 3 seconds
     setTimeout(() => setSubmitStatus(null), 3000);
   };
+
+  const socialMediaLinks = [
+    {
+      name: 'Instagram',
+      url: contactSettings.instagram_url,
+      icon: Instagram,
+      color: 'text-pink-600 hover:bg-pink-100'
+    },
+    {
+      name: 'Facebook',
+      url: contactSettings.facebook_url,
+      icon: Facebook,
+      color: 'text-blue-600 hover:bg-blue-100'
+    },
+    {
+      name: 'TikTok',
+      url: contactSettings.tiktok_url,
+      icon: Music,
+      color: 'text-black hover:bg-gray-100'
+    },
+    {
+      name: 'iFood',
+      url: contactSettings.ifood_url,
+      icon: ShoppingBag,
+      color: 'text-red-600 hover:bg-red-100'
+    },
+    {
+      name: 'WhatsApp',
+      url: contactSettings.whatsapp_url,
+      icon: MessageCircle,
+      color: 'text-green-600 hover:bg-green-100'
+    }
+  ].filter(social => social.url); // Only show configured social media
 
   return (
     <section id="contact" className="py-20 bg-gray-50">
@@ -61,10 +150,10 @@ export default function Contact() {
                   <div className="ml-4">
                     <h4 className="font-semibold">Telefone & WhatsApp</h4>
                     <a 
-                      href="tel:+553199999999" 
+                      href={`tel:${contactSettings.phone_number.replace(/\D/g, '')}`}
                       className="text-gray-600 hover:text-purple-600 transition"
                     >
-                      (31) 99999-9999
+                      {contactSettings.phone_number}
                     </a>
                   </div>
                 </div>
@@ -74,10 +163,10 @@ export default function Contact() {
                   <div className="ml-4">
                     <h4 className="font-semibold">E-mail</h4>
                     <a 
-                      href="mailto:contato@acaihouse.com.br"
+                      href={`mailto:${contactSettings.email_contact}`}
                       className="text-gray-600 hover:text-purple-600 transition"
                     >
-                      contato@acaihouse.com.br
+                      {contactSettings.email_contact}
                     </a>
                   </div>
                 </div>
@@ -105,27 +194,26 @@ export default function Contact() {
                 </div>
               </div>
 
-              <div className="mt-8 pt-8 border-t">
-                <h4 className="font-semibold mb-4">Redes Sociais</h4>
-                <div className="flex space-x-4">
-                  <a
-                    href="https://instagram.com/acaihouse"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-purple-100 p-3 rounded-full text-purple-600 hover:bg-purple-200 transition"
-                  >
-                    <Instagram className="h-6 w-6" />
-                  </a>
-                  <a
-                    href="https://facebook.com/acaihouse"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-purple-100 p-3 rounded-full text-purple-600 hover:bg-purple-200 transition"
-                  >
-                    <Facebook className="h-6 w-6" />
-                  </a>
+              {/* Social Media Links */}
+              {socialMediaLinks.length > 0 && (
+                <div className="mt-8 pt-8 border-t">
+                  <h4 className="font-semibold mb-4">Redes Sociais</h4>
+                  <div className="flex flex-wrap gap-3">
+                    {socialMediaLinks.map((social) => (
+                      <a
+                        key={social.name}
+                        href={social.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`p-3 rounded-full transition ${social.color}`}
+                        title={social.name}
+                      >
+                        <social.icon className="h-6 w-6" />
+                      </a>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Map */}
