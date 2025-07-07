@@ -12,6 +12,7 @@ import AdminAddons from './AdminAddons';
 import CategoryManager from './CategoryManager';
 import HeroImageUpload from './HeroImageUpload';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
+import toast from 'react-hot-toast';
 import {
   LogOut,
   Image,
@@ -124,6 +125,8 @@ export default function AdminDashboard() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
+  const [googleMapsError, setGoogleMapsError] = useState<string | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -132,83 +135,173 @@ export default function AdminDashboard() {
   // Initialize Google Maps with Places Autocomplete
   useEffect(() => {
     if (activeSection === 'location' && !mapRef.current && mapContainerRef.current) {
-      const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-      
-      if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_ACTUAL_GOOGLE_MAPS_API_KEY') {
-        console.warn('Google Maps API key not configured. Please set VITE_GOOGLE_MAPS_API_KEY in your .env file.');
-        setErrorMessage('Google Maps API key not configured. Please contact administrator.');
-        return;
-      }
+      initializeGoogleMaps();
+    }
+  }, [activeSection]);
 
+  const initializeGoogleMaps = async () => {
+    const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    
+    // Verificar se a API key está configurada
+    if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_ACTUAL_GOOGLE_MAPS_API_KEY') {
+      const errorMsg = 'Google Maps API key não configurada. Configure VITE_GOOGLE_MAPS_API_KEY no arquivo .env';
+      console.warn(errorMsg);
+      setGoogleMapsError(errorMsg);
+      toast.error('Google Maps não configurado. Verifique a configuração da API key.');
+      return;
+    }
+
+    try {
+      setGoogleMapsError(null);
+      
+      // Configurar o loader do Google Maps
       const loader = new Loader({
         apiKey: googleMapsApiKey,
         version: 'weekly',
-        libraries: ['places']
+        libraries: ['places'],
+        language: 'pt-BR',
+        region: 'BR'
       });
 
-      loader.load().then(() => {
-        const map = new google.maps.Map(mapContainerRef.current!, {
-          center: siteContent.contact.coordinates,
-          zoom: 15
-        });
+      // Carregar a API do Google Maps
+      await loader.load();
+      
+      if (!mapContainerRef.current) {
+        console.warn('Map container not found');
+        return;
+      }
 
-        const marker = new google.maps.Marker({
-          position: siteContent.contact.coordinates,
-          map: map,
-          draggable: true
-        });
+      // Criar o mapa
+      const map = new google.maps.Map(mapContainerRef.current, {
+        center: siteContent.contact.coordinates,
+        zoom: 15,
+        mapTypeControl: true,
+        streetViewControl: true,
+        fullscreenControl: true,
+        zoomControl: true,
+        styles: [
+          {
+            featureType: 'poi',
+            elementType: 'labels',
+            stylers: [{ visibility: 'on' }]
+          }
+        ]
+      });
 
-        // Initialize Places Autocomplete
-        const input = document.getElementById('address-input') as HTMLInputElement;
-        const autocomplete = new google.maps.places.Autocomplete(input);
+      // Criar marcador
+      const marker = new google.maps.Marker({
+        position: siteContent.contact.coordinates,
+        map: map,
+        draggable: true,
+        title: 'Açaí House',
+        animation: google.maps.Animation.DROP
+      });
+
+      // Configurar autocomplete para o campo de endereço
+      const addressInput = document.getElementById('address-input') as HTMLInputElement;
+      if (addressInput) {
+        const autocomplete = new google.maps.places.Autocomplete(addressInput, {
+          types: ['address'],
+          componentRestrictions: { country: 'BR' },
+          fields: ['formatted_address', 'geometry', 'name']
+        });
         
         autocomplete.addListener('place_changed', () => {
           const place = autocomplete.getPlace();
-          if (place.geometry) {
-            const location = {
-              lat: place.geometry.location?.lat() || 0,
-              lng: place.geometry.location?.lng() || 0
-            };
-            
-            map.setCenter(location);
-            marker.setPosition(location);
-            
-            setSiteContent(prev => ({
-              ...prev,
-              contact: {
-                ...prev.contact,
-                address: place.formatted_address || prev.contact.address,
-                coordinates: location
-              }
-            }));
-            setHasUnsavedChanges(true);
-            logActivity('Updated location');
+          
+          if (!place.geometry || !place.geometry.location) {
+            toast.error('Não foi possível encontrar a localização para este endereço');
+            return;
           }
-        });
 
-        marker.addListener('dragend', () => {
-          const position = marker.getPosition()!;
+          const location = {
+            lat: place.geometry.location.lat(),
+            lng: place.geometry.location.lng()
+          };
+          
+          // Atualizar mapa e marcador
+          map.setCenter(location);
+          map.setZoom(16);
+          marker.setPosition(location);
+          
+          // Atualizar estado
           setSiteContent(prev => ({
             ...prev,
             contact: {
               ...prev.contact,
-              coordinates: {
-                lat: position.lat(),
-                lng: position.lng()
-              }
+              address: place.formatted_address || prev.contact.address,
+              coordinates: location
             }
           }));
+          
           setHasUnsavedChanges(true);
-          logActivity('Updated marker location');
+          logActivity('Updated location via autocomplete');
+          toast.success('Localização atualizada!');
         });
+      }
 
-        mapRef.current = map;
-      }).catch((error) => {
-        console.error('Error loading Google Maps:', error);
-        setErrorMessage('Error loading Google Maps. Please check your API key configuration.');
+      // Listener para arrastar o marcador
+      marker.addListener('dragend', () => {
+        const position = marker.getPosition();
+        if (!position) return;
+
+        const newCoordinates = {
+          lat: position.lat(),
+          lng: position.lng()
+        };
+
+        setSiteContent(prev => ({
+          ...prev,
+          contact: {
+            ...prev.contact,
+            coordinates: newCoordinates
+          }
+        }));
+        
+        setHasUnsavedChanges(true);
+        logActivity('Updated marker location by dragging');
+        toast.success('Posição do marcador atualizada!');
       });
+
+      // Adicionar InfoWindow
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="padding: 10px;">
+            <h3 style="margin: 0 0 5px 0; color: #7C3AED;">Açaí House</h3>
+            <p style="margin: 0; font-size: 14px;">${siteContent.contact.address}</p>
+          </div>
+        `
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.open(map, marker);
+      });
+
+      mapRef.current = map;
+      setIsGoogleMapsLoaded(true);
+      toast.success('Google Maps carregado com sucesso!');
+
+    } catch (error) {
+      console.error('Error loading Google Maps:', error);
+      
+      let errorMessage = 'Erro ao carregar Google Maps';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('API key')) {
+          errorMessage = 'Chave da API do Google Maps inválida';
+        } else if (error.message.includes('quota')) {
+          errorMessage = 'Cota da API do Google Maps excedida';
+        } else if (error.message.includes('billing')) {
+          errorMessage = 'Faturamento não configurado no Google Cloud';
+        } else {
+          errorMessage = `Erro do Google Maps: ${error.message}`;
+        }
+      }
+      
+      setGoogleMapsError(errorMessage);
+      toast.error(errorMessage);
     }
-  }, [activeSection]);
+  };
 
   // Auto-save functionality
   useEffect(() => {
@@ -721,6 +814,43 @@ export default function AdminDashboard() {
               <div className="space-y-8">
                 <h2 className="text-xl font-semibold mb-6">Gerenciar Localização</h2>
                 
+                {/* Google Maps API Status */}
+                {googleMapsError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                      <div className="text-sm text-red-800">
+                        <p className="font-medium mb-1">Erro do Google Maps:</p>
+                        <p>{googleMapsError}</p>
+                        <div className="mt-3">
+                          <p className="font-medium">Para corrigir:</p>
+                          <ol className="list-decimal list-inside mt-1 space-y-1">
+                            <li>Configure VITE_GOOGLE_MAPS_API_KEY no arquivo .env</li>
+                            <li>Ative as APIs no Google Cloud Console:
+                              <ul className="list-disc list-inside ml-4 mt-1">
+                                <li>Maps JavaScript API</li>
+                                <li>Places API</li>
+                                <li>Geocoding API (opcional)</li>
+                              </ul>
+                            </li>
+                            <li>Configure o faturamento no Google Cloud</li>
+                            <li>Reinicie o servidor de desenvolvimento</li>
+                          </ol>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {isGoogleMapsLoaded && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <div className="h-5 w-5 bg-green-500 rounded-full mr-3"></div>
+                      <span className="text-green-800 font-medium">Google Maps carregado com sucesso!</span>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="grid gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -741,6 +871,12 @@ export default function AdminDashboard() {
                       placeholder="Digite o endereço para buscar..."
                       disabled={previewMode}
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {isGoogleMapsLoaded 
+                        ? 'Digite para buscar endereços automaticamente' 
+                        : 'Autocomplete indisponível - configure o Google Maps API'
+                      }
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -807,8 +943,41 @@ export default function AdminDashboard() {
                     </label>
                     <div
                       ref={mapContainerRef}
-                      className="w-full h-[400px] rounded-lg overflow-hidden"
-                    />
+                      className="w-full h-[400px] rounded-lg overflow-hidden border"
+                      style={{ 
+                        backgroundColor: googleMapsError ? '#f3f4f6' : 'transparent'
+                      }}
+                    >
+                      {googleMapsError && (
+                        <div className="flex items-center justify-center h-full text-gray-500">
+                          <div className="text-center">
+                            <MapPin className="h-12 w-12 mx-auto mb-2" />
+                            <p>Mapa indisponível</p>
+                            <p className="text-sm">Configure o Google Maps API</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {isGoogleMapsLoaded && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Arraste o marcador para ajustar a posição exata
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Coordenadas atuais */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Coordenadas Atuais</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-500">Latitude:</span>
+                        <span className="ml-2 font-mono">{siteContent.contact.coordinates.lat.toFixed(6)}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Longitude:</span>
+                        <span className="ml-2 font-mono">{siteContent.contact.coordinates.lng.toFixed(6)}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
