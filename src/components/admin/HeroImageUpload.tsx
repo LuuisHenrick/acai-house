@@ -92,15 +92,15 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
     }
   };
 
-  const useLocalBanner = async () => {
-    const localBannerUrl = '/banner-acai-house.jpeg';
+  const useAcaiHouseBanner = async () => {
+    const bannerUrl = '/Banner Acai House 2.png';
     
     try {
-      await updateSetting('hero_background_url', localBannerUrl);
-      onImageUpdate(localBannerUrl);
+      await updateSetting('hero_background_url', bannerUrl);
+      onImageUpdate(bannerUrl);
       toast.success('Banner da Açaí House aplicado como imagem de fundo!');
     } catch (error) {
-      toast.error('Erro ao aplicar banner local');
+      toast.error('Erro ao aplicar banner da Açaí House');
     }
   };
 
@@ -109,7 +109,7 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
   };
 
   // Determinar qual imagem está sendo usada
-  const isUsingLocalBanner = currentImageUrl.includes('banner-acai-house.jpeg');
+  const isUsingAcaiHouseBanner = currentImageUrl.includes('Banner Acai House 2.png');
   const isUsingDefault = currentImageUrl.includes('unsplash.com');
 
   return (
@@ -131,7 +131,7 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
             alt="Imagem de fundo da hero section"
             className="w-full h-full object-cover"
             onError={(e) => {
-              e.currentTarget.src = '/banner-acai-house.jpeg';
+              e.currentTarget.src = '/Banner Acai House 2.png';
             }}
           />
           
@@ -158,10 +158,10 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
 
         {/* Status da Imagem Atual */}
         <div className="mt-2 text-sm">
-          {isUsingLocalBanner && (
+          {isUsingAcaiHouseBanner && (
             <div className="flex items-center text-purple-600">
               <Check className="h-4 w-4 mr-2" />
-              <span>Usando banner personalizado da Açaí House</span>
+              <span>Usando banner oficial da Açaí House</span>
             </div>
           )}
           {isUsingDefault && (
@@ -186,14 +186,14 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
       {/* Opções Rápidas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <button
-          onClick={useLocalBanner}
-          disabled={isUsingLocalBanner}
+          onClick={useAcaiHouseBanner}
+          disabled={isUsingAcaiHouseBanner}
           className="flex items-center justify-center p-4 border-2 border-purple-200 rounded-lg hover:border-purple-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <div className="text-center">
             <ImageIcon className="h-8 w-8 text-purple-600 mx-auto mb-2" />
             <p className="font-medium text-purple-600">Usar Banner da Açaí House</p>
-            <p className="text-sm text-gray-500">Banner personalizado importado</p>
+            <p className="text-sm text-gray-500">Banner oficial com identidade visual</p>
           </div>
         </button>
 
@@ -267,7 +267,7 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
               <li>Prefira imagens horizontais (landscape)</li>
               <li>Evite imagens com muito texto ou detalhes pequenos</li>
               <li>A imagem será exibida com overlay escuro para melhor legibilidade do texto</li>
-              <li>O banner da Açaí House já está otimizado para o site</li>
+              <li>O banner oficial da Açaí House já está otimizado para o site</li>
             </ul>
           </div>
         </div>

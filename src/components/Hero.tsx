@@ -4,11 +4,8 @@ import { useSiteSettings } from '../context/SiteSettingsContext';
 export default function Hero() {
   const { settings } = useSiteSettings();
 
-  // Use the local banner as fallback if hero_background_url is not set or is the default
-  const backgroundImage = settings.hero_background_url && 
-    !settings.hero_background_url.includes('unsplash.com') 
-    ? settings.hero_background_url 
-    : '/banner-acai-house.jpeg';
+  // Use the new Açaí House banner as the primary background
+  const backgroundImage = '/Banner Acai House 2.png';
 
   return (
     <div className="relative h-screen">
@@ -18,20 +15,20 @@ export default function Hero() {
           backgroundImage: `url("${backgroundImage}")`,
         }}
       >
-        <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
       
       <div className="relative h-full flex items-center justify-center text-center text-white px-4">
         <div className="max-w-3xl">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6">
+          <h1 className="text-5xl md:text-6xl font-bold mb-6 drop-shadow-lg">
             Açaí House o melhor da região Oeste!
           </h1>
-          <p className="text-xl md:text-2xl mb-8">
+          <p className="text-xl md:text-2xl mb-8 drop-shadow-md">
             Deliciosas combinações de açaí com as melhores frutas e complementos
           </p>
           <a
             href="#menu"
-            className="inline-block bg-purple-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-purple-700 transition transform hover:scale-105"
+            className="inline-block bg-purple-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-purple-700 transition transform hover:scale-105 shadow-lg"
           >
             Ver Cardápio
           </a>
