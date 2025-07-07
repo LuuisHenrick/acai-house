@@ -93,7 +93,7 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
   };
 
   const useAcaiHouseBanner = async () => {
-    const bannerUrl = '/Banner Acai House 2.png';
+    const bannerUrl = '/Banner Acai House 3.png';
     
     try {
       await updateSetting('hero_background_url', bannerUrl);
