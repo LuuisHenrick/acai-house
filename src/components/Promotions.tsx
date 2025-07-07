@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Timer, Gift, Share2, ShoppingBag, Shield, Truck } from 'lucide-react';
+import { Timer, Gift, Share2, ShoppingBag, Shield, Truck, Tag, Copy, Check } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { supabase, testSupabaseConnection, isSupabaseConfigured } from '../lib/supabase';
 import toast from 'react-hot-toast';
@@ -72,7 +72,7 @@ function CountdownTimer({ endDate }: { endDate: string }) {
 }
 
 export default function Promotions() {
-  const { addToCart } = useCart();
+  const { addToCart, applyCoupon, setIsCartOpen } = useCart();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -169,6 +169,24 @@ export default function Promotions() {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
+  const handleApplyPromotion = async (promo: Promotion) => {
+    if (promo.coupon_code) {
+      // Se a promoção tem cupom, aplicar o cupom e abrir o carrinho
+      await applyCoupon(promo.coupon_code);
+      setIsCartOpen(true);
+    } else {
+      // Se não tem cupom, adicionar produto diretamente ao carrinho com preço promocional
+      addToCart({
+        id: promo.id,
+        name: promo.title,
+        price: promo.promo_price,
+        image: promo.image_url || 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80'
+      }, 'M', []);
+      
+      toast.success(`${promo.title} adicionado ao carrinho com desconto!`);
+    }
+  };
+
   if (isLoading) {
     return (
       <section id="promotions" className="py-20 bg-gradient-to-b from-purple-50 to-white">
@@ -255,16 +273,29 @@ export default function Promotions() {
 
                 {promo.coupon_code && (
                   <div className="bg-purple-50 p-4 rounded-lg mb-6">
-                    <p className="text-sm text-purple-600 mb-2">Use o cupom:</p>
+                    <p className="text-sm text-purple-600 mb-2 flex items-center">
+                      <Tag className="h-4 w-4 mr-2" />
+                      Use o cupom:
+                    </p>
                     <div className="flex items-center justify-between bg-white border-2 border-purple-200 rounded-lg p-2">
                       <code className="text-lg font-mono font-bold text-purple-600">
                         {promo.coupon_code}
                       </code>
                       <button
                         onClick={() => copyCode(promo.coupon_code!)}
-                        className="text-purple-600 hover:text-purple-700 text-sm font-semibold"
+                        className="text-purple-600 hover:text-purple-700 text-sm font-semibold flex items-center"
                       >
-                        {copiedCode === promo.coupon_code ? 'Copiado!' : 'Copiar'}
+                        {copiedCode === promo.coupon_code ? (
+                          <>
+                            <Check className="h-4 w-4 mr-1" />
+                            Copiado!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4 mr-1" />
+                            Copiar
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -272,17 +303,21 @@ export default function Promotions() {
 
                 <div className="flex items-center space-x-4">
                   <button
-                    onClick={() => addToCart({
-                      id: promo.id,
-                      name: promo.title,
-                      price: promo.promo_price,
-                      image: promo.image_url || 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80'
-                    }, 'M', [])}
+                    onClick={() => handleApplyPromotion(promo)}
                     className="flex-1 bg-purple-600 text-white py-3 rounded-lg font-semibold
                       hover:bg-purple-700 transition flex items-center justify-center"
                   >
-                    <ShoppingBag className="h-5 w-5 mr-2" />
-                    Aproveitar Agora
+                    {promo.coupon_code ? (
+                      <>
+                        <Tag className="h-5 w-5 mr-2" />
+                        Aplicar Cupom
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingBag className="h-5 w-5 mr-2" />
+                        Aproveitar Agora
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => handleShare(promo)}
