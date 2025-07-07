@@ -131,7 +131,7 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
             alt="Imagem de fundo da hero section"
             className="w-full h-full object-cover"
             onError={(e) => {
-              e.currentTarget.src = '/Banner Acai House 2.png';
+              e.currentTarget.src = '/Banner Acai House 3.png';
             }}
           />
           
