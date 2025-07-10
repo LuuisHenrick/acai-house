@@ -31,15 +31,7 @@ export default function About() {
             <img
               src="https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80"
               alt="Açaí House Interior"
-              className="w-full h-auto rounded-lg shadow-xl object-cover"
-              style={{ 
-                aspectRatio: '4/3',
-                objectFit: 'cover',
-                objectPosition: 'center'
-              }}
-              onError={(e) => {
-                e.currentTarget.src = 'https://images.unsplash.com/photo-1596463119298-3e5d8d8b4001?auto=format&fit=crop&q=80';
-              }}
+              className="rounded-lg shadow-xl"
             />
             <div className="absolute -bottom-6 -right-6 bg-purple-600 text-white p-6 rounded-lg shadow-lg">
               <p className="text-3xl font-bold">3+ Anos</p>
@@ -123,15 +115,7 @@ export default function About() {
               <img
                 src="https://images.unsplash.com/photo-1596463119298-3e5d8d8b4001?auto=format&fit=crop&q=80"
                 alt="Açaí Bowl"
-                className="w-full h-auto rounded-lg shadow-xl object-cover"
-                style={{ 
-                  aspectRatio: '4/3',
-                  objectFit: 'cover',
-                  objectPosition: 'center'
-                }}
-                onError={(e) => {
-                  e.currentTarget.src = 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80';
-                }}
+                className="rounded-lg shadow-xl"
               />
               <div className="absolute -bottom-6 -left-6 bg-white text-purple-900 p-6 rounded-lg shadow-lg">
                 <p className="text-3xl font-bold">5000+</p>
