@@ -3,6 +3,7 @@ import { Plus, Loader } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
+import ProductCard from './ProductCard';
 
 interface Product {
   id: string;
@@ -448,41 +449,13 @@ export default function Menu() {
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
           {filteredProducts.map((product) => (
-            <div
+            <ProductCard
               key={product.id}
-              className="bg-white rounded-lg shadow-lg overflow-hidden transform hover:scale-105 transition cursor-pointer"
+              product={product}
               onClick={() => setSelectedProduct(product)}
-            >
-              <div className="aspect-video">
-                <img
-                  src={getPrimaryImage(product)}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                  style={{ 
-                    objectFit: 'cover',
-                    objectPosition: 'center'
-                  }}
-                />
-              </div>
-              <div className="p-6">
-                <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
-                <p className="text-gray-600 mb-4">{product.description}</p>
-                <div className="flex justify-between items-center">
-                  <div>
-                    {product.sizes.length > 0 && (
-                      <span className="text-lg font-bold text-purple-600">
-                        A partir de R$ {Math.min(...product.sizes.map(s => s.price)).toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-                  <button className="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 transition">
-                    <Plus className="h-6 w-6" />
-                  </button>
-                </div>
-              </div>
-            </div>
+            />
           ))}
         </div>
 
