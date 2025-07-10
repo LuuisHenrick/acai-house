@@ -22,11 +22,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
   },
-  global: {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  },
 });
 
 // Função para testar a conexão com timeout e melhor tratamento de erros
