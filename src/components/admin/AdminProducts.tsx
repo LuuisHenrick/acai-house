@@ -577,6 +577,13 @@ export default function AdminProducts() {
     try {
       const user = (await supabase.auth.getUser()).data.user;
       
+      // Get the category name from the selected category_id
+      const selectedCategory = categories.find(cat => cat.id === formData.category_id);
+      if (!selectedCategory) {
+        toast.error('Categoria selecionada não encontrada');
+        throw new Error('Selected category not found');
+      }
+      
       if (editingProduct) {
         // Atualizar produto existente
         const { error: productError } = await supabase
@@ -584,6 +591,7 @@ export default function AdminProducts() {
           .update({
             name: formData.name,
             description: formData.description,
+            category: selectedCategory.name,
             category_id: formData.category_id,
             active: formData.active,
             updated_by: user?.id
@@ -634,6 +642,7 @@ export default function AdminProducts() {
           .insert({
             name: formData.name,
             description: formData.description,
+            category: selectedCategory.name,
             category_id: formData.category_id,
             active: formData.active,
             display_order: products.length + 1,
