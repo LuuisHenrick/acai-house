@@ -176,8 +176,8 @@ export default function Contact() {
                   <div className="ml-4">
                     <h4 className="font-semibold">Endereço</h4>
                     <p className="text-gray-600">
-                      Av. Silva Lobo, 1234 - Nova Granada<br />
-                      Belo Horizonte - MG, 30431-262
+                      R. Pastor Belmiro Amorim, 240 - Vista Alegre<br />
+                      Belo Horizonte - MG, 30516-250
                     </p>
                   </div>
                 </div>
