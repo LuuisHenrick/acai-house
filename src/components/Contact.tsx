@@ -187,8 +187,8 @@ export default function Contact() {
                   <div className="ml-4">
                     <h4 className="font-semibold">Horário de Funcionamento</h4>
                     <p className="text-gray-600">
-                      Segunda a Sábado: 11h - 22h<br />
-                      Domingo: 12h - 20h
+                      Terça a Domingo: 14h - 23h<br />
+                      Domingo: 15h - 23h
                     </p>
                   </div>
                 </div>
