@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ProductImage {
@@ -37,81 +37,121 @@ interface ProductCardProps {
   onClick: () => void;
 }
 
-export default function ProductCard({ product, onClick }: ProductCardProps) {
+const ProductCard = React.memo(({ product, onClick }: ProductCardProps) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   // Get all active images, sorted by display_order
-  const activeImages = product.images
-    ?.filter(img => img.is_active)
-    ?.sort((a, b) => a.display_order - b.display_order) || [];
+  const activeImages = useMemo(() => {
+    const images = product.images
+      ?.filter(img => img.is_active)
+      ?.sort((a, b) => a.display_order - b.display_order) || [];
 
-  // Fallback to a default image if no images are available
-  const images = activeImages.length > 0 
-    ? activeImages 
-    : [{ 
-        id: 'default', 
-        image_url: 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80',
-        alt_text: product.name,
-        display_order: 1,
-        is_primary: true,
-        is_active: true
-      }];
+    // Fallback to a default image if no images are available
+    return images.length > 0 
+      ? images 
+      : [{ 
+          id: 'default', 
+          image_url: 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80',
+          alt_text: product.name,
+          display_order: 1,
+          is_primary: true,
+          is_active: true
+        }];
+  }, [product.images, product.name]);
 
-  const hasMultipleImages = images.length > 1;
+  const hasMultipleImages = activeImages.length > 1;
 
   // Auto-advance carousel every 5 seconds when not hovered
   useEffect(() => {
     if (!hasMultipleImages || isHovered) return;
 
     const interval = setInterval(() => {
-      setCurrentImageIndex(prev => (prev + 1) % images.length);
+      setCurrentImageIndex(prev => (prev + 1) % activeImages.length);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [hasMultipleImages, isHovered, images.length]);
+  }, [hasMultipleImages, isHovered, activeImages.length]);
 
-  const goToPrevious = (e: React.MouseEvent) => {
+  // Touch handlers for swipe navigation
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!touchStart || !touchEnd || !hasMultipleImages) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe) {
+      setCurrentImageIndex(prev => (prev + 1) % activeImages.length);
+    }
+    if (isRightSwipe) {
+      setCurrentImageIndex(prev => prev === 0 ? activeImages.length - 1 : prev - 1);
+    }
+  }, [touchStart, touchEnd, hasMultipleImages, activeImages.length]);
+
+  const goToPrevious = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex(prev => prev === 0 ? images.length - 1 : prev - 1);
-  };
+    setCurrentImageIndex(prev => prev === 0 ? activeImages.length - 1 : prev - 1);
+  }, [activeImages.length]);
 
-  const goToNext = (e: React.MouseEvent) => {
+  const goToNext = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex(prev => (prev + 1) % images.length);
-  };
+    setCurrentImageIndex(prev => (prev + 1) % activeImages.length);
+  }, [activeImages.length]);
 
-  const goToImage = (index: number, e: React.MouseEvent) => {
+  const goToImage = useCallback((index: number, e: React.MouseEvent) => {
     e.stopPropagation();
     setCurrentImageIndex(index);
-  };
+  }, []);
 
-  const getMinPrice = () => {
+  const getMinPrice = useCallback(() => {
     if (product.sizes.length === 0) return 0;
     return Math.min(...product.sizes.map(s => s.price));
-  };
+  }, [product.sizes]);
+
+  const optimizeImageUrl = useCallback((url: string) => {
+    if (url.includes('supabase.co')) {
+      return `${url}?width=400&quality=70`;
+    }
+    return url;
+  }, []);
+
+  const currentImage = activeImages[currentImageIndex];
 
   return (
     <div
-      className="bg-white rounded-lg shadow-lg overflow-hidden transform hover:scale-105 transition-all duration-300 cursor-pointer group"
+      className="bg-white rounded-lg shadow-lg overflow-hidden transform hover:scale-105 transition-all duration-300 cursor-pointer group w-full"
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Image Container */}
-      <div className="relative aspect-square overflow-hidden">
+      <div 
+        className="relative aspect-square overflow-hidden"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* Main Image */}
         <div className="relative w-full h-full">
           <img
-            src={images[currentImageIndex].image_url}
-            alt={images[currentImageIndex].alt_text || product.name}
+            src={optimizeImageUrl(currentImage.image_url)}
+            alt={currentImage.alt_text || product.name}
             className="w-full h-full object-cover transition-opacity duration-500"
-            style={{ 
-              objectFit: 'cover',
-              objectPosition: 'center'
-            }}
+            loading="lazy"
             onError={(e) => {
-              e.currentTarget.src = 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80';
+              e.currentTarget.src = 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80&width=400&quality=70';
             }}
           />
           
@@ -119,19 +159,19 @@ export default function ProductCard({ product, onClick }: ProductCardProps) {
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         </div>
 
-        {/* Navigation arrows (only show if multiple images and hovered) */}
+        {/* Navigation arrows (only show if multiple images and hovered on desktop) */}
         {hasMultipleImages && isHovered && (
           <>
             <button
               onClick={goToPrevious}
-              className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+              className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100 hidden sm:block"
               aria-label="Imagem anterior"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={goToNext}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100 hidden sm:block"
               aria-label="Próxima imagem"
             >
               <ChevronRight className="h-4 w-4" />
@@ -142,7 +182,7 @@ export default function ProductCard({ product, onClick }: ProductCardProps) {
         {/* Image indicators (dots) */}
         {hasMultipleImages && (
           <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex space-x-2">
-            {images.map((_, index) => (
+            {activeImages.map((_, index) => (
               <button
                 key={index}
                 onClick={(e) => goToImage(index, e)}
@@ -160,7 +200,7 @@ export default function ProductCard({ product, onClick }: ProductCardProps) {
         {/* Image counter */}
         {hasMultipleImages && (
           <div className="absolute top-3 right-3 bg-black/70 text-white px-2 py-1 rounded-full text-xs font-medium">
-            {currentImageIndex + 1}/{images.length}
+            {currentImageIndex + 1}/{activeImages.length}
           </div>
         )}
 
@@ -180,8 +220,8 @@ export default function ProductCard({ product, onClick }: ProductCardProps) {
       </div>
 
       {/* Product Info */}
-      <div className="p-6">
-        <h3 className="text-xl font-semibold mb-2 text-gray-900 line-clamp-2">
+      <div className="p-4 sm:p-6">
+        <h3 className="text-lg sm:text-xl font-semibold mb-2 text-gray-900 line-clamp-2">
           {product.name}
         </h3>
         <p className="text-gray-600 mb-4 text-sm line-clamp-3 leading-relaxed">
@@ -212,4 +252,8 @@ export default function ProductCard({ product, onClick }: ProductCardProps) {
       </div>
     </div>
   );
-}
+});
+
+ProductCard.displayName = 'ProductCard';
+
+export default ProductCard;

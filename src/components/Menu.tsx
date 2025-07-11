@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Plus, Loader } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { supabase } from '../lib/supabase';
@@ -75,8 +75,9 @@ function ProductModal({
     product.sizes.find(s => s.active) || null
   );
   const [selectedAddons, setSelectedAddons] = useState<{ [groupId: string]: AddonOption[] }>({});
+  const [isLoading, setIsLoading] = useState(false);
 
-  const toggleAddon = (groupId: string, option: AddonOption) => {
+  const toggleAddon = useCallback((groupId: string, option: AddonOption) => {
     setSelectedAddons(prev => {
       const currentGroup = prev[groupId] || [];
       const group = product.addon_groups.find(g => g.id === groupId);
@@ -105,9 +106,9 @@ function ProductModal({
         };
       }
     });
-  };
+  }, [product.addon_groups]);
 
-  const canAddToCart = () => {
+  const canAddToCart = useMemo(() => {
     if (!selectedSize) return false;
     
     // Check required groups
@@ -121,17 +122,25 @@ function ProductModal({
     }
     
     return true;
-  };
+  }, [selectedSize, product.addon_groups, selectedAddons]);
 
-  const handleAddToCart = () => {
-    if (!selectedSize || !canAddToCart()) return;
+  const handleAddToCart = useCallback(async () => {
+    if (!selectedSize || !canAddToCart) return;
     
-    const allSelectedAddons = Object.values(selectedAddons).flat();
-    onAddToCart(product, selectedSize, allSelectedAddons);
-    onClose();
-  };
+    setIsLoading(true);
+    try {
+      const allSelectedAddons = Object.values(selectedAddons).flat();
+      await onAddToCart(product, selectedSize, allSelectedAddons);
+      onClose();
+      toast.success(`${product.name} adicionado ao carrinho!`);
+    } catch (error) {
+      toast.error('Erro ao adicionar produto ao carrinho');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedSize, canAddToCart, selectedAddons, onAddToCart, product, onClose]);
 
-  const calculateTotal = () => {
+  const calculateTotal = useMemo(() => {
     if (!selectedSize) return 0;
     
     const addonTotal = Object.values(selectedAddons)
@@ -139,25 +148,32 @@ function ProductModal({
       .reduce((sum, addon) => sum + addon.price, 0);
     
     return selectedSize.price + addonTotal;
-  };
+  }, [selectedSize, selectedAddons]);
 
-  const getPrimaryImage = () => {
+  const getPrimaryImage = useCallback(() => {
     const primaryImage = product.images?.find(img => img.is_primary && img.is_active);
-    return primaryImage?.image_url || 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80';
-  };
+    const imageUrl = primaryImage?.image_url || 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80';
+    
+    // Optimize image for modal
+    if (imageUrl.includes('supabase.co')) {
+      return `${imageUrl}?width=800&quality=80`;
+    }
+    return imageUrl;
+  }, [product.images]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <div className="flex justify-between items-start mb-6">
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900">{product.name}</h3>
+            <div className="flex-1 pr-4">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900">{product.name}</h3>
               <p className="text-gray-600 mt-2">{product.description}</p>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-2xl"
+              className="text-gray-400 hover:text-gray-600 text-2xl flex-shrink-0"
+              aria-label="Fechar"
             >
               ×
             </button>
@@ -168,10 +184,7 @@ function ProductModal({
               src={getPrimaryImage()}
               alt={product.name}
               className="w-full h-full object-cover"
-              style={{ 
-                objectFit: 'cover',
-                objectPosition: 'center'
-              }}
+              loading="lazy"
             />
           </div>
 
@@ -269,16 +282,23 @@ function ProductModal({
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg font-semibold">Total</span>
               <span className="text-2xl font-bold text-purple-600">
-                R$ {calculateTotal().toFixed(2)}
+                R$ {calculateTotal.toFixed(2)}
               </span>
             </div>
             
             <button
               onClick={handleAddToCart}
-              disabled={!canAddToCart()}
-              className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!canAddToCart || isLoading}
+              className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
-              Adicionar ao Carrinho
+              {isLoading ? (
+                <>
+                  <div className="animate-spin h-5 w-5 mr-2 border-2 border-white border-t-transparent rounded-full"></div>
+                  Adicionando...
+                </>
+              ) : (
+                'Adicionar ao Carrinho'
+              )}
             </button>
           </div>
         </div>
@@ -287,7 +307,7 @@ function ProductModal({
   );
 }
 
-export default function Menu() {
+const Menu = React.memo(() => {
   const { addToCart } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -300,7 +320,7 @@ export default function Menu() {
     loadProducts();
   }, []);
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('product_categories')
@@ -313,9 +333,9 @@ export default function Menu() {
     } catch (error) {
       console.error('Error loading categories:', error);
     }
-  };
+  }, []);
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     try {
       // Load products with sizes, addon groups, and images
       const { data: productsData, error: productsError } = await supabase
@@ -373,9 +393,9 @@ export default function Menu() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const handleAddToCart = (product: Product, size: ProductSize, addons: AddonOption[]) => {
+  const handleAddToCart = useCallback((product: Product, size: ProductSize, addons: AddonOption[]) => {
     const primaryImage = product.images?.find(img => img.is_primary)?.image_url || 
                         'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80';
 
@@ -385,22 +405,17 @@ export default function Menu() {
       price: size.price,
       image: primaryImage
     }, size.size_name, addons);
-    
-    toast.success(`${product.name} adicionado ao carrinho!`);
-  };
+  }, [addToCart]);
 
-  const filteredProducts = products.filter(product => 
-    selectedCategory === 'all' || product.category_id === selectedCategory
+  const filteredProducts = useMemo(() => 
+    products.filter(product => 
+      selectedCategory === 'all' || product.category_id === selectedCategory
+    ), [products, selectedCategory]
   );
-
-  const getPrimaryImage = (product: Product) => {
-    const primaryImage = product.images?.find(img => img.is_primary && img.is_active);
-    return primaryImage?.image_url || 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80';
-  };
 
   if (isLoading) {
     return (
-      <section id="menu" className="py-20 bg-gray-50">
+      <section id="menu" className="py-12 sm:py-20 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-center h-64">
             <Loader className="animate-spin h-8 w-8 text-purple-600" />
@@ -411,45 +426,47 @@ export default function Menu() {
   }
 
   return (
-    <section id="menu" className="py-20 bg-gray-50">
+    <section id="menu" className="py-12 sm:py-20 bg-gray-50">
       <div className="container mx-auto px-4">
-        <h2 className="text-4xl font-bold text-center mb-12">Nosso Cardápio</h2>
+        <h2 className="text-3xl sm:text-4xl font-bold text-center mb-8 sm:mb-12">Nosso Cardápio</h2>
         
         {/* Category Filter */}
-        <div className="flex justify-center mb-8">
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setSelectedCategory('all')}
-              className={`px-4 py-2 rounded-full border transition ${
-                selectedCategory === 'all'
-                  ? 'bg-purple-600 text-white border-purple-600'
-                  : 'bg-white text-gray-700 border-gray-300 hover:border-purple-300'
-              }`}
-            >
-              Todas as categorias
-            </button>
-            {categories.map(category => (
+        <div className="flex justify-center mb-6 sm:mb-8">
+          <div className="overflow-x-auto">
+            <div className="flex gap-2 pb-2 min-w-max px-4">
               <button
-                key={category.id}
-                onClick={() => setSelectedCategory(category.id)}
-                className={`px-4 py-2 rounded-full border transition ${
-                  selectedCategory === category.id
-                    ? 'text-white border-transparent'
-                    : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                onClick={() => setSelectedCategory('all')}
+                className={`px-4 py-2 rounded-full border transition whitespace-nowrap ${
+                  selectedCategory === 'all'
+                    ? 'bg-purple-600 text-white border-purple-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-purple-300'
                 }`}
-                style={{
-                  backgroundColor: selectedCategory === category.id ? category.color : undefined,
-                  borderColor: selectedCategory === category.id ? category.color : undefined
-                }}
               >
-                {category.name}
+                Todas as categorias
               </button>
-            ))}
+              {categories.map(category => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={`px-4 py-2 rounded-full border transition whitespace-nowrap ${
+                    selectedCategory === category.id
+                      ? 'text-white border-transparent'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                  }`}
+                  style={{
+                    backgroundColor: selectedCategory === category.id ? category.color : undefined,
+                    borderColor: selectedCategory === category.id ? category.color : undefined
+                  }}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
           {filteredProducts.map((product) => (
             <ProductCard
               key={product.id}
@@ -475,4 +492,8 @@ export default function Menu() {
       </div>
     </section>
   );
-}
+});
+
+Menu.displayName = 'Menu';
+
+export default Menu;

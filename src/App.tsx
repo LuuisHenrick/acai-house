@@ -8,6 +8,7 @@ import About from './components/About';
 import Contact from './components/Contact';
 import Cart from './components/Cart';
 import Checkout from './components/Checkout';
+import MobileBottomBar from './components/MobileBottomBar';
 import AdminLogin from './components/admin/AdminLogin';
 import AdminDashboard from './components/admin/AdminDashboard';
 import { CartProvider } from './context/CartContext';
@@ -26,19 +27,47 @@ function App() {
       <AuthProvider>
         <SiteSettingsProvider>
           <CartProvider>
-            <Toaster position="top-right" />
+            <Toaster 
+              position="top-right" 
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  background: '#363636',
+                  color: '#fff',
+                },
+                success: {
+                  duration: 3000,
+                  iconTheme: {
+                    primary: '#10B981',
+                    secondary: '#fff',
+                  },
+                },
+                error: {
+                  duration: 5000,
+                  iconTheme: {
+                    primary: '#EF4444',
+                    secondary: '#fff',
+                  },
+                },
+              }}
+            />
             <Routes>
               {/* Customer Routes */}
               <Route path="/" element={
                 <div className="min-h-screen bg-white">
                   <Header />
-                  <Hero />
-                  <Menu />
-                  <Promotions />
-                  <About />
-                  <Contact />
+                  <main>
+                    <Hero />
+                    <Menu />
+                    <Promotions />
+                    <About />
+                    <Contact />
+                  </main>
                   <Cart />
                   <Checkout />
+                  <MobileBottomBar />
+                  {/* Add padding bottom for mobile bottom bar */}
+                  <div className="h-16 md:hidden"></div>
                 </div>
               } />
 

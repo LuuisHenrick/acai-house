@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { X, Minus, Plus, ShoppingBag, Edit2, Tag, Trash2, Gift } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import Spinner from './Spinner';
 
 interface EditToppingsModalProps {
   item: any;
@@ -19,35 +20,44 @@ const toppings = [
 function EditToppingsModal({ item, onClose }: EditToppingsModalProps) {
   const { updateToppings } = useCart();
   const [selectedToppings, setSelectedToppings] = useState(item.toppings);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const toggleTopping = (topping: typeof toppings[0]) => {
-    setSelectedToppings(current => {
+  const toggleTopping = useCallback((topping: typeof toppings[0]) => {
+    setSelectedToppings((current: any[]) => {
       const exists = current.find(t => t.id === topping.id);
       if (exists) {
         return current.filter(t => t.id !== topping.id);
       }
       return [...current, topping];
     });
-  };
+  }, []);
 
-  const handleSave = () => {
-    updateToppings(item.id, selectedToppings);
-    onClose();
-  };
+  const handleSave = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      await updateToppings(item.id, selectedToppings);
+      onClose();
+    } catch (error) {
+      console.error('Error updating toppings:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [item.id, selectedToppings, updateToppings, onClose]);
 
-  const calculateTotal = () => {
-    const toppingsTotal = selectedToppings.reduce((sum, topping) => sum + topping.price, 0);
+  const calculateTotal = useMemo(() => {
+    const toppingsTotal = selectedToppings.reduce((sum: number, topping: any) => sum + topping.price, 0);
     return item.price + toppingsTotal;
-  };
+  }, [selectedToppings, item.price]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center p-4 border-b">
           <h3 className="text-lg font-semibold">Editar Adicionais</h3>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full transition"
+            aria-label="Fechar"
           >
             <X className="h-5 w-5" />
           </button>
@@ -65,7 +75,7 @@ function EditToppingsModal({ item, onClose }: EditToppingsModalProps) {
                   <div className="flex items-center">
                     <input
                       type="checkbox"
-                      checked={selectedToppings.some(t => t.id === topping.id)}
+                      checked={selectedToppings.some((t: any) => t.id === topping.id)}
                       onChange={() => toggleTopping(topping)}
                       className="h-5 w-5 text-purple-600 rounded"
                     />
@@ -83,16 +93,23 @@ function EditToppingsModal({ item, onClose }: EditToppingsModalProps) {
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg font-semibold">Total por unidade</span>
               <span className="text-xl font-bold text-purple-600">
-                R$ {calculateTotal().toFixed(2)}
+                R$ {calculateTotal.toFixed(2)}
               </span>
             </div>
 
             <button
               onClick={handleSave}
-              className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold
-                hover:bg-purple-700 transition"
+              disabled={isLoading}
+              className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50 flex items-center justify-center"
             >
-              Salvar Alterações
+              {isLoading ? (
+                <>
+                  <Spinner size="sm" color="white" className="mr-2" />
+                  Salvando...
+                </>
+              ) : (
+                'Salvar Alterações'
+              )}
             </button>
           </div>
         </div>
@@ -120,12 +137,12 @@ export default function Cart() {
   const [couponCode, setCouponCode] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
-  const handleCheckout = () => {
+  const handleCheckout = useCallback(() => {
     setIsCartOpen(false);
     setIsCheckoutOpen(true);
-  };
+  }, [setIsCartOpen, setIsCheckoutOpen]);
 
-  const calculateItemTotal = (item: any) => {
+  const calculateItemTotal = useCallback((item: any) => {
     let itemPrice = item.price;
     
     // Aplicar desconto se houver promoção ativa para este produto
@@ -141,24 +158,37 @@ export default function Cart() {
     
     const toppingsTotal = item.toppings.reduce((sum: number, topping: any) => sum + topping.price, 0);
     return (itemPrice + toppingsTotal) * item.quantity;
-  };
+  }, [appliedPromotion]);
 
-  const calculateOriginalItemTotal = (item: any) => {
+  const calculateOriginalItemTotal = useCallback((item: any) => {
     const toppingsTotal = item.toppings.reduce((sum: number, topping: any) => sum + topping.price, 0);
     return (item.price + toppingsTotal) * item.quantity;
-  };
+  }, []);
 
-  const handleApplyCoupon = async () => {
+  const handleApplyCoupon = useCallback(async () => {
     if (!couponCode.trim()) return;
     
     setIsApplyingCoupon(true);
-    await applyCoupon(couponCode);
-    setIsApplyingCoupon(false);
-    setCouponCode('');
-  };
+    try {
+      await applyCoupon(couponCode);
+      setCouponCode('');
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  }, [couponCode, applyCoupon]);
 
-  const originalTotal = items.reduce((sum, item) => calculateOriginalItemTotal(item), 0);
-  const savings = originalTotal - total;
+  const { originalTotal, savings } = useMemo(() => {
+    const originalTotal = items.reduce((sum, item) => calculateOriginalItemTotal(item), 0);
+    const savings = originalTotal - total;
+    return { originalTotal, savings };
+  }, [items, calculateOriginalItemTotal, total]);
+
+  const optimizeImageUrl = useCallback((url: string) => {
+    if (url.includes('supabase.co')) {
+      return `${url}?width=200&quality=70`;
+    }
+    return url;
+  }, []);
 
   if (!isCartOpen) return null;
 
@@ -172,6 +202,7 @@ export default function Cart() {
             <button
               onClick={() => setIsCartOpen(false)}
               className="p-2 hover:bg-gray-100 rounded-full transition"
+              aria-label="Fechar carrinho"
             >
               <X className="h-6 w-6" />
             </button>
@@ -196,12 +227,13 @@ export default function Cart() {
                     <div key={itemKey} className="bg-white p-4 rounded-lg shadow border">
                       <div className="flex items-center space-x-4">
                         <img
-                          src={item.image}
+                          src={optimizeImageUrl(item.image)}
                           alt={item.name}
-                          className="w-20 h-20 object-cover rounded"
+                          className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded"
+                          loading="lazy"
                         />
-                        <div className="flex-1">
-                          <h3 className="font-semibold">{item.name}</h3>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold truncate">{item.name}</h3>
                           <p className="text-sm text-gray-500">Tamanho: {item.size}</p>
                           
                           {/* Toppings */}
@@ -210,7 +242,7 @@ export default function Cart() {
                               <p>Adicionais:</p>
                               <ul className="list-disc list-inside">
                                 {item.toppings.map((topping: any) => (
-                                  <li key={topping.id} className="text-sm">
+                                  <li key={topping.id} className="text-sm truncate">
                                     {topping.name} (+R$ {topping.price.toFixed(2)})
                                   </li>
                                 ))}
@@ -243,6 +275,7 @@ export default function Cart() {
                             <button
                               onClick={() => updateQuantity(item.id, item.quantity - 1)}
                               className="p-1 hover:bg-gray-100 rounded-full transition"
+                              aria-label="Diminuir quantidade"
                             >
                               <Minus className="h-4 w-4" />
                             </button>
@@ -250,6 +283,7 @@ export default function Cart() {
                             <button
                               onClick={() => updateQuantity(item.id, item.quantity + 1)}
                               className="p-1 hover:bg-gray-100 rounded-full transition"
+                              aria-label="Aumentar quantidade"
                             >
                               <Plus className="h-4 w-4" />
                             </button>
@@ -263,6 +297,7 @@ export default function Cart() {
                             <button
                               onClick={() => removeFromCart(item.id)}
                               className="ml-2 text-red-500 hover:text-red-600 transition"
+                              aria-label="Remover item"
                             >
                               <X className="h-4 w-4" />
                             </button>
@@ -314,9 +349,13 @@ export default function Cart() {
                         <button
                           onClick={handleApplyCoupon}
                           disabled={!couponCode.trim() || isApplyingCoupon}
-                          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                         >
-                          {isApplyingCoupon ? 'Aplicando...' : 'Aplicar'}
+                          {isApplyingCoupon ? (
+                            <Spinner size="sm" color="white" />
+                          ) : (
+                            'Aplicar'
+                          )}
                         </button>
                       </div>
                       
@@ -364,8 +403,7 @@ export default function Cart() {
             <button
               onClick={handleCheckout}
               disabled={items.length === 0}
-              className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold
-                hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Finalizar Pedido
             </button>

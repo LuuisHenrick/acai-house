@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -61,7 +61,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [appliedPromotion, setAppliedPromotion] = useState<Promotion | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
 
-  const addToCart = (product: any, size: string, toppings: Topping[]) => {
+  const addToCart = useCallback((product: any, size: string, toppings: Topping[]) => {
+    // Validate inputs
+    if (!product?.id || !product?.name || typeof product?.price !== 'number' || product.price < 0) {
+      toast.error('Produto inválido');
+      return;
+    }
+
+    if (!size?.trim()) {
+      toast.error('Tamanho é obrigatório');
+      return;
+    }
+
     setItems(currentItems => {
       const existingItemIndex = currentItems.findIndex(
         item => 
@@ -73,7 +84,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (existingItemIndex >= 0) {
         return currentItems.map((item, index) =>
           index === existingItemIndex
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: Math.min(item.quantity + 1, 99) } // Limit to 99
             : item
         );
       }
@@ -81,44 +92,49 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return [...currentItems, {
         id: product.id,
         name: product.name,
-        price: product.price,
+        price: Math.max(0, product.price), // Ensure positive price
         quantity: 1,
         size,
-        image: product.image,
-        toppings
+        image: product.image || '',
+        toppings: toppings || []
       }];
     });
     setIsCartOpen(true);
-  };
+  }, []);
 
-  const removeFromCart = (id: string) => {
+  const removeFromCart = useCallback((id: string) => {
+    if (!id?.trim()) return;
     setItems(currentItems => currentItems.filter(item => item.id !== id));
-  };
+  }, []);
 
-  const updateQuantity = (id: string, quantity: number) => {
+  const updateQuantity = useCallback((id: string, quantity: number) => {
+    if (!id?.trim() || quantity < 0 || quantity > 99) return;
+    
     setItems(currentItems =>
       currentItems.map(item =>
-        item.id === id ? { ...item, quantity: Math.max(0, quantity) } : item
+        item.id === id ? { ...item, quantity: Math.max(0, Math.min(quantity, 99)) } : item
       ).filter(item => item.quantity > 0)
     );
-  };
+  }, []);
 
-  const updateToppings = (id: string, toppings: Topping[]) => {
+  const updateToppings = useCallback((id: string, toppings: Topping[]) => {
+    if (!id?.trim()) return;
+    
     setItems(currentItems =>
       currentItems.map(item =>
-        item.id === id ? { ...item, toppings } : item
+        item.id === id ? { ...item, toppings: toppings || [] } : item
       )
     );
-  };
+  }, []);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setItems([]);
     setAppliedPromotion(null);
     setCouponError(null);
-  };
+  }, []);
 
-  const applyCoupon = async (couponCode: string) => {
-    if (!couponCode.trim()) {
+  const applyCoupon = useCallback(async (couponCode: string) => {
+    if (!couponCode?.trim()) {
       setCouponError('Por favor, insira um código de cupom');
       return;
     }
@@ -157,15 +173,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       console.error('Error applying coupon:', error);
       setCouponError('Erro ao validar cupom. Tente novamente.');
     }
-  };
+  }, [items]);
 
-  const removeCoupon = () => {
+  const removeCoupon = useCallback(() => {
     setAppliedPromotion(null);
     setCouponError(null);
     toast.success('Cupom removido');
-  };
+  }, []);
 
-  const calculateItemPrice = (item: CartItem) => {
+  const calculateItemPrice = useCallback((item: CartItem) => {
     let itemPrice = item.price;
     
     // Aplicar desconto se houver promoção ativa para este produto
@@ -180,39 +196,52 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
     
     return itemPrice;
-  };
+  }, [appliedPromotion]);
 
-  const total = items.reduce((sum, item) => {
-    const toppingsTotal = item.toppings.reduce((acc, topping) => acc + topping.price, 0);
-    const itemPrice = calculateItemPrice(item);
-    return sum + (itemPrice + toppingsTotal) * item.quantity;
-  }, 0);
+  const total = useMemo(() => {
+    return items.reduce((sum, item) => {
+      const toppingsTotal = item.toppings.reduce((acc, topping) => acc + (topping.price || 0), 0);
+      const itemPrice = calculateItemPrice(item);
+      return sum + (itemPrice + toppingsTotal) * item.quantity;
+    }, 0);
+  }, [items, calculateItemPrice]);
 
-  const originalTotal = items.reduce((sum, item) => {
-    const toppingsTotal = item.toppings.reduce((acc, topping) => acc + topping.price, 0);
-    return sum + (item.price + toppingsTotal) * item.quantity;
-  }, 0);
-
-  const savings = originalTotal - total;
+  const contextValue = useMemo(() => ({
+    items,
+    addToCart,
+    removeFromCart,
+    updateQuantity,
+    updateToppings,
+    clearCart,
+    isCartOpen,
+    setIsCartOpen,
+    isCheckoutOpen,
+    setIsCheckoutOpen,
+    total,
+    appliedPromotion,
+    couponError,
+    applyCoupon,
+    removeCoupon
+  }), [
+    items,
+    addToCart,
+    removeFromCart,
+    updateQuantity,
+    updateToppings,
+    clearCart,
+    isCartOpen,
+    setIsCartOpen,
+    isCheckoutOpen,
+    setIsCheckoutOpen,
+    total,
+    appliedPromotion,
+    couponError,
+    applyCoupon,
+    removeCoupon
+  ]);
 
   return (
-    <CartContext.Provider value={{
-      items,
-      addToCart,
-      removeFromCart,
-      updateQuantity,
-      updateToppings,
-      clearCart,
-      isCartOpen,
-      setIsCartOpen,
-      isCheckoutOpen,
-      setIsCheckoutOpen,
-      total,
-      appliedPromotion,
-      couponError,
-      applyCoupon,
-      removeCoupon
-    }}>
+    <CartContext.Provider value={contextValue}>
       {children}
     </CartContext.Provider>
   );
