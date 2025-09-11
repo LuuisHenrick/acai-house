@@ -12,6 +12,9 @@ interface CartItem {
   id: string;
   name: string;
   price: number;
+  originalPrice?: number;
+  isOnPromotion?: boolean;
+  promoCouponCode?: string;
   quantity: number;
   size: string;
   image: string;
@@ -93,6 +96,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         id: product.id,
         name: product.name,
         price: Math.max(0, product.price), // Ensure positive price
+        originalPrice: product.originalPrice || product.price,
+        isOnPromotion: product.isOnPromotion || false,
+        promoCouponCode: product.promoCouponCode,
         quantity: 1,
         size,
         image: product.image || '',
@@ -142,33 +148,62 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setCouponError(null);
 
     try {
-      const { data, error } = await supabase
-        .from('promotions')
-        .select('*')
-        .eq('active', true)
-        .eq('coupon_code', couponCode.toUpperCase())
-        .lte('start_date', new Date().toISOString())
-        .gte('end_date', new Date().toISOString())
+      // Verificar se algum produto no carrinho tem este cupom
+      const matchingItem = items.find(item => 
+        item.promoCouponCode && 
+        item.promoCouponCode.toUpperCase() === couponCode.toUpperCase()
+      );
+
+      if (!matchingItem) {
+        setCouponError('Cupom inválido ou não aplicável aos produtos no carrinho');
+        return;
+      }
+
+      // Verificar se o produto já está com preço promocional aplicado
+      if (matchingItem.isOnPromotion) {
+        setCouponError('Este produto já está com preço promocional aplicado');
+        return;
+      }
+
+      // Buscar dados do produto para verificar validade da promoção
+      const { data: productData, error } = await supabase
+        .from('products')
+        .select('id, name, is_on_promotion, promo_price, promo_coupon_code, promo_end_date')
+        .eq('id', matchingItem.id)
+        .eq('promo_coupon_code', couponCode.toUpperCase())
+        .eq('is_on_promotion', true)
         .single();
 
-      if (error || !data) {
+      if (error || !productData) {
         setCouponError('Cupom inválido ou expirado');
         return;
       }
 
-      // Verificar se há produtos no carrinho que correspondem à promoção
-      const hasMatchingProduct = items.some(item => 
-        item.name.toLowerCase().includes(data.product_name.toLowerCase()) ||
-        data.product_name.toLowerCase().includes(item.name.toLowerCase())
-      );
-
-      if (!hasMatchingProduct) {
-        setCouponError(`Este cupom é válido apenas para ${data.product_name}`);
+      // Verificar se a promoção não expirou
+      if (productData.promo_end_date && new Date(productData.promo_end_date) <= new Date()) {
+        setCouponError('Este cupom expirou');
         return;
       }
 
-      setAppliedPromotion(data);
-      toast.success(`Cupom ${couponCode} aplicado! Desconto de ${data.discount_percentage}%`);
+      // Aplicar promoção criando um objeto compatível com o sistema antigo
+      const promotionData: Promotion = {
+        id: productData.id,
+        title: `Promoção ${productData.name}`,
+        description: `Desconto especial para ${productData.name}`,
+        product_name: productData.name,
+        original_price: matchingItem.originalPrice || matchingItem.price,
+        promo_price: productData.promo_price,
+        discount_percentage: Math.round(((matchingItem.originalPrice || matchingItem.price) - productData.promo_price) / (matchingItem.originalPrice || matchingItem.price) * 100),
+        coupon_code: couponCode.toUpperCase(),
+        start_date: new Date().toISOString(),
+        end_date: productData.promo_end_date,
+        image_url: matchingItem.image,
+        is_flash: false,
+        active: true
+      };
+
+      setAppliedPromotion(promotionData);
+      toast.success(`Cupom ${couponCode} aplicado! Desconto de ${promotionData.discount_percentage}%`);
     } catch (error) {
       console.error('Error applying coupon:', error);
       setCouponError('Erro ao validar cupom. Tente novamente.');
@@ -186,9 +221,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     
     // Aplicar desconto se houver promoção ativa para este produto
     if (appliedPromotion) {
-      const isPromotionProduct = 
-        item.name.toLowerCase().includes(appliedPromotion.product_name.toLowerCase()) ||
-        appliedPromotion.product_name.toLowerCase().includes(item.name.toLowerCase());
+      const isPromotionProduct = item.id === appliedPromotion.id;
       
       if (isPromotionProduct) {
         itemPrice = appliedPromotion.promo_price;

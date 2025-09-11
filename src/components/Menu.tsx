@@ -14,6 +14,10 @@ interface Product {
   sizes: ProductSize[];
   addon_groups: AddonGroup[];
   images: ProductImage[];
+  is_on_promotion?: boolean;
+  promo_price?: number;
+  promo_coupon_code?: string;
+  promo_end_date?: string;
   product_categories?: {
     name: string;
     slug: string;
@@ -143,11 +147,20 @@ function ProductModal({
   const calculateTotal = useMemo(() => {
     if (!selectedSize) return 0;
     
+    // Verificar se há promoção ativa
+    let basePrice = selectedSize.price;
+    if (product.is_on_promotion && product.promo_price && product.promo_end_date) {
+      const promoEndDate = new Date(product.promo_end_date);
+      if (promoEndDate > new Date()) {
+        basePrice = product.promo_price;
+      }
+    }
+    
     const addonTotal = Object.values(selectedAddons)
       .flat()
       .reduce((sum, addon) => sum + addon.price, 0);
     
-    return selectedSize.price + addonTotal;
+    return basePrice + addonTotal;
   }, [selectedSize, selectedAddons]);
 
   const getPrimaryImage = useCallback(() => {
@@ -214,8 +227,21 @@ function ProductModal({
                       <div className="text-sm text-gray-500">{size.size_label}</div>
                     </div>
                   </div>
-                  <div className="text-lg font-bold text-purple-600">
-                    R$ {size.price.toFixed(2)}
+                  <div className="text-right">
+                    {product.is_on_promotion && product.promo_price && product.promo_end_date && new Date(product.promo_end_date) > new Date() ? (
+                      <div className="space-y-1">
+                        <div className="text-sm text-gray-400 line-through">
+                          R$ {size.price.toFixed(2)}
+                        </div>
+                        <div className="text-lg font-bold text-red-600">
+                          R$ {product.promo_price.toFixed(2)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-lg font-bold text-purple-600">
+                        R$ {size.price.toFixed(2)}
+                      </div>
+                    )}
                   </div>
                 </label>
               ))}
@@ -399,10 +425,21 @@ const Menu = React.memo(() => {
     const primaryImage = product.images?.find(img => img.is_primary)?.image_url || 
                         'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80';
 
+    // Verificar se há promoção ativa para este produto
+    let finalPrice = size.price;
+    if (product.is_on_promotion && product.promo_price && product.promo_end_date) {
+      const promoEndDate = new Date(product.promo_end_date);
+      if (promoEndDate > new Date()) {
+        finalPrice = product.promo_price;
+      }
+    }
     addToCart({
       id: product.id,
       name: product.name,
-      price: size.price,
+      price: finalPrice,
+      originalPrice: size.price,
+      isOnPromotion: product.is_on_promotion && product.promo_end_date && new Date(product.promo_end_date) > new Date(),
+      promoCouponCode: product.promo_coupon_code,
       image: primaryImage
     }, size.size_name, addons);
   }, [addToCart]);

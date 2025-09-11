@@ -26,6 +26,10 @@ interface Product {
   active: boolean;
   sizes: ProductSize[];
   images: ProductImage[];
+  is_on_promotion?: boolean;
+  promo_price?: number;
+  promo_coupon_code?: string;
+  promo_end_date?: string;
   product_categories?: {
     name: string;
     slug: string;
@@ -116,6 +120,25 @@ const ProductCard = React.memo(({ product, onClick }: ProductCardProps) => {
   }, []);
 
   const getMinPrice = useCallback(() => {
+    if (product.sizes.length === 0) return 0;
+    
+    // Se está em promoção e tem preço promocional, usar o preço promocional
+    if (product.is_on_promotion && product.promo_price && product.promo_end_date) {
+      const promoEndDate = new Date(product.promo_end_date);
+      if (promoEndDate > new Date()) {
+        return product.promo_price;
+      }
+    }
+    
+    return Math.min(...product.sizes.map(s => s.price));
+  }, [product.sizes, product.is_on_promotion, product.promo_price, product.promo_end_date]);
+
+  const isPromotionActive = useCallback(() => {
+    if (!product.is_on_promotion || !product.promo_end_date) return false;
+    return new Date(product.promo_end_date) > new Date();
+  }, [product.is_on_promotion, product.promo_end_date]);
+
+  const getOriginalMinPrice = useCallback(() => {
     if (product.sizes.length === 0) return 0;
     return Math.min(...product.sizes.map(s => s.price));
   }, [product.sizes]);
@@ -217,6 +240,13 @@ const ProductCard = React.memo(({ product, onClick }: ProductCardProps) => {
             <Plus className="h-4 w-4" />
           </button>
         </div>
+
+        {/* Promotion Badge */}
+        {isPromotionActive() && (
+          <div className="absolute top-3 right-3 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold animate-pulse">
+            PROMOÇÃO
+          </div>
+        )}
       </div>
 
       {/* Product Info */}
@@ -232,9 +262,25 @@ const ProductCard = React.memo(({ product, onClick }: ProductCardProps) => {
           <div className="flex flex-col">
             {product.sizes.length > 0 && (
               <>
-                <span className="text-lg font-bold text-purple-600">
-                  A partir de R$ {getMinPrice().toFixed(2)}
-                </span>
+                {isPromotionActive() ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-400 line-through">
+                        R$ {getOriginalMinPrice().toFixed(2)}
+                      </span>
+                      <span className="text-lg font-bold text-red-600">
+                        R$ {getMinPrice().toFixed(2)}
+                      </span>
+                    </div>
+                    <span className="text-xs text-red-600 font-medium">
+                      Economia de R$ {(getOriginalMinPrice() - getMinPrice()).toFixed(2)}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-lg font-bold text-purple-600">
+                    A partir de R$ {getMinPrice().toFixed(2)}
+                  </span>
+                )}
                 <span className="text-xs text-gray-500">
                   {product.sizes.length} tamanho{product.sizes.length > 1 ? 's' : ''} disponível{product.sizes.length > 1 ? 'eis' : ''}
                 </span>

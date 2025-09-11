@@ -80,6 +80,10 @@ interface ProductFormData {
   active: boolean;
   sizes: ProductSize[];
   addon_groups: AddonGroup[];
+  is_on_promotion: boolean;
+  promo_price: number;
+  promo_coupon_code: string;
+  promo_end_date: Date | null;
 }
 
 interface ProductCategory {
@@ -116,14 +120,22 @@ function ProductModal({
       category_id: product.category_id || '',
       active: product.active,
       sizes: product.sizes.length > 0 ? product.sizes : defaultSizes,
-      addon_groups: product.addon_groups
+      addon_groups: product.addon_groups,
+      is_on_promotion: product.is_on_promotion || false,
+      promo_price: product.promo_price || 0,
+      promo_coupon_code: product.promo_coupon_code || '',
+      promo_end_date: product.promo_end_date ? new Date(product.promo_end_date) : null
     } : {
       name: '',
       description: '',
       category_id: '',
       active: true,
       sizes: defaultSizes,
-      addon_groups: []
+      addon_groups: [],
+      is_on_promotion: false,
+      promo_price: 0,
+      promo_coupon_code: '',
+      promo_end_date: null
     }
   );
   const [isLoading, setIsLoading] = useState(false);
@@ -185,6 +197,30 @@ function ProductModal({
       return;
     }
 
+    // Validações específicas de promoção
+    if (formData.is_on_promotion) {
+      if (!formData.promo_price || formData.promo_price <= 0) {
+        toast.error('Preço promocional é obrigatório quando produto está em promoção');
+        return;
+      }
+
+      if (!formData.promo_end_date) {
+        toast.error('Data de fim da promoção é obrigatória');
+        return;
+      }
+
+      if (formData.promo_end_date <= new Date()) {
+        toast.error('Data de fim da promoção deve ser no futuro');
+        return;
+      }
+
+      // Verificar se preço promocional é menor que o menor preço normal
+      const minPrice = Math.min(...formData.sizes.filter(s => s.active).map(s => s.price));
+      if (formData.promo_price >= minPrice) {
+        toast.error('Preço promocional deve ser menor que o preço normal');
+        return;
+      }
+    }
     setIsLoading(true);
     try {
       await onSave(formData);
@@ -301,6 +337,94 @@ function ProductModal({
                     <label className="text-sm font-medium text-gray-700">
                       Produto Ativo
                     </label>
+                  </div>
+
+                  {/* Campos de Promoção */}
+                  <div className="space-y-4 border-t pt-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.is_on_promotion}
+                        onChange={(e) => setFormData({ ...formData, is_on_promotion: e.target.checked })}
+                        className="mr-2 h-4 w-4 text-purple-600 rounded"
+                      />
+                      <label className="text-sm font-medium text-gray-700">
+                        Produto em Promoção
+                      </label>
+                    </div>
+
+                    {formData.is_on_promotion && (
+                      <div className="space-y-4 bg-purple-50 p-4 rounded-lg">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Preço Promocional *
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-3 text-gray-500">R$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={formData.promo_price}
+                                onChange={(e) => setFormData({ ...formData, promo_price: parseFloat(e.target.value) || 0 })}
+                                className="w-full pl-8 p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                placeholder="0.00"
+                                required
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Data de Fim da Promoção *
+                            </label>
+                            <input
+                              type="datetime-local"
+                              value={formData.promo_end_date ? formData.promo_end_date.toISOString().slice(0, 16) : ''}
+                              onChange={(e) => setFormData({ 
+                                ...formData, 
+                                promo_end_date: e.target.value ? new Date(e.target.value) : null 
+                              })}
+                              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Cupom de Promoção (opcional)
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.promo_coupon_code}
+                            onChange={(e) => setFormData({ ...formData, promo_coupon_code: e.target.value.toUpperCase() })}
+                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="Ex: PROMO10"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Deixe vazio se não quiser usar cupom para esta promoção
+                          </p>
+                        </div>
+
+                        {/* Preview do Desconto */}
+                        {formData.promo_price > 0 && formData.sizes.length > 0 && (
+                          <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
+                            <h5 className="font-medium text-green-800 mb-2">Preview do Desconto</h5>
+                            {formData.sizes.filter(s => s.active && s.price > 0).map(size => {
+                              const discount = Math.round(((size.price - formData.promo_price) / size.price) * 100);
+                              return (
+                                <div key={size.size_name} className="flex justify-between text-sm">
+                                  <span>{size.size_name}: R$ {size.price.toFixed(2)} → R$ {formData.promo_price.toFixed(2)}</span>
+                                  <span className="text-green-600 font-medium">-{discount}%</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -594,6 +718,10 @@ export default function AdminProducts() {
             category: selectedCategory.name,
             category_id: formData.category_id,
             active: formData.active,
+            is_on_promotion: formData.is_on_promotion,
+            promo_price: formData.is_on_promotion ? formData.promo_price : null,
+            promo_coupon_code: formData.is_on_promotion && formData.promo_coupon_code ? formData.promo_coupon_code : null,
+            promo_end_date: formData.is_on_promotion && formData.promo_end_date ? formData.promo_end_date.toISOString() : null,
             updated_by: user?.id
           })
           .eq('id', editingProduct.id);
@@ -645,6 +773,10 @@ export default function AdminProducts() {
             category: selectedCategory.name,
             category_id: formData.category_id,
             active: formData.active,
+            is_on_promotion: formData.is_on_promotion,
+            promo_price: formData.is_on_promotion ? formData.promo_price : null,
+            promo_coupon_code: formData.is_on_promotion && formData.promo_coupon_code ? formData.promo_coupon_code : null,
+            promo_end_date: formData.is_on_promotion && formData.promo_end_date ? formData.promo_end_date.toISOString() : null,
             display_order: products.length + 1,
             created_by: user?.id
           })
@@ -807,6 +939,11 @@ export default function AdminProducts() {
                           }`}>
                             {product.active ? 'Ativo' : 'Inativo'}
                           </span>
+                          {product.is_on_promotion && (
+                            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                              Promoção
+                            </span>
+                          )}
                           {categoryInfo && (
                             <span 
                               className="px-2 py-1 rounded-full text-xs font-semibold text-white"
@@ -817,6 +954,34 @@ export default function AdminProducts() {
                           )}
                         </div>
                         <p className="text-gray-600 mb-3">{product.description}</p>
+
+                        {/* Informações de Promoção */}
+                        {product.is_on_promotion && (
+                          <div className="bg-red-50 border border-red-200 p-3 rounded-lg mb-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-red-800">Promoção Ativa</span>
+                              <span className="text-lg font-bold text-red-600">
+                                R$ {product.promo_price?.toFixed(2)}
+                              </span>
+                            </div>
+                            {product.promo_coupon_code && (
+                              <div className="text-xs text-red-600">
+                                Cupom: <code className="bg-red-100 px-1 rounded">{product.promo_coupon_code}</code>
+                              </div>
+                            )}
+                            {product.promo_end_date && (
+                              <div className="text-xs text-red-600">
+                                Válida até: {new Date(product.promo_end_date).toLocaleDateString('pt-BR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex space-x-2">
                         <button
