@@ -113,7 +113,7 @@ const AUTOSAVE_DELAY = 3000; // 3 seconds
 export default function AdminDashboard() {
   const { logout, user } = useAuth();
   const { settings, refreshSettings } = useSiteSettings();
-  const [activeSection, setActiveSection] = useState<'content' | 'products' | 'promotions' | 'addons' | 'categories' | 'location' | 'settings'>('content');
+  const [activeSection, setActiveSection] = useState<'content' | 'products' | 'addons' | 'categories' | 'location' | 'settings'>('content');
   const [siteContent, setSiteContent] = useState<SiteContent>(initialSiteContent);
   const [contentHistory, setContentHistory] = useState<SiteContent[]>([initialSiteContent]);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -492,7 +492,6 @@ export default function AdminDashboard() {
   const menuItems = [
     { id: 'content', label: 'Conteúdo', icon: Layout },
     { id: 'products', label: 'Produtos', icon: Package },
-    { id: 'promotions', label: 'Promoções', icon: FileText },
     { id: 'addons', label: 'Acréscimos', icon: Tag },
     { id: 'categories', label: 'Categorias', icon: Tag },
     { id: 'location', label: 'Localização', icon: MapPin },
@@ -796,9 +795,6 @@ export default function AdminDashboard() {
 
             {/* Products Section */}
             {activeSection === 'products' && <AdminProducts />}
-
-            {/* Promotions Section */}
-            {activeSection === 'promotions' && <AdminPromotions />}
 
             {/* Addons Section */}
             {activeSection === 'addons' && <AdminAddons />}

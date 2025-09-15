@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUp, ShoppingCart, Tag, Home } from 'lucide-react';
+import { ArrowUp, ShoppingCart, Home, Package } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 export default function MobileBottomBar() {
@@ -19,7 +19,7 @@ export default function MobileBottomBar() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40 md:hidden">
-      <div className="grid grid-cols-4 h-16">
+      <div className="grid grid-cols-3 h-16">
         {/* Home */}
         <button
           onClick={() => scrollToSection('hero')}
@@ -30,14 +30,14 @@ export default function MobileBottomBar() {
           <span className="text-xs text-gray-600">Início</span>
         </button>
 
-        {/* Promoções */}
+        {/* Cardápio */}
         <button
-          onClick={() => scrollToSection('promotions')}
+          onClick={() => scrollToSection('menu')}
           className="flex flex-col items-center justify-center space-y-1 hover:bg-gray-50 transition"
-          aria-label="Promoções"
+          aria-label="Cardápio"
         >
-          <Tag className="h-5 w-5 text-gray-600" />
-          <span className="text-xs text-gray-600">Promoções</span>
+          <Package className="h-5 w-5 text-gray-600" />
+          <span className="text-xs text-gray-600">Cardápio</span>
         </button>
 
         {/* Carrinho */}

@@ -54,7 +54,6 @@ export default function Header() {
           <nav className="hidden md:flex space-x-8">
             <button onClick={() => scrollToSection('hero')} className="hover:text-purple-200 transition">Início</button>
             <button onClick={() => scrollToSection('menu')} className="hover:text-purple-200 transition">Cardápio</button>
-            <button onClick={() => scrollToSection('promotions')} className="hover:text-purple-200 transition">Promoções</button>
             <button onClick={() => scrollToSection('about')} className="hover:text-purple-200 transition">Sobre Nós</button>
             <button onClick={() => scrollToSection('contact')} className="hover:text-purple-200 transition">Contato</button>
           </nav>
@@ -102,12 +101,6 @@ export default function Header() {
                 className="block w-full text-left px-3 py-2 hover:bg-purple-800 rounded-md transition"
               >
                 Cardápio
-              </button>
-              <button 
-                onClick={() => scrollToSection('promotions')} 
-                className="block w-full text-left px-3 py-2 hover:bg-purple-800 rounded-md transition"
-              >
-                Promoções
               </button>
               <button 
                 onClick={() => scrollToSection('about')} 

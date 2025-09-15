@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Header from './components/Header';
 import Hero from './components/Hero';
 import Menu from './components/Menu';
-import Promotions from './components/Promotions';
 import About from './components/About';
 import Contact from './components/Contact';
 import Cart from './components/Cart';
@@ -70,7 +69,6 @@ function App() {
                   <main>
                     <Hero />
                     <Menu />
-                    <Promotions />
                     <About />
                     <Contact />
                   </main>
