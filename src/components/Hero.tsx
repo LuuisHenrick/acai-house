@@ -5,7 +5,7 @@ export default function Hero() {
   const { settings } = useSiteSettings();
 
   // Use the new Açaí House banner as the primary background
-  const backgroundImage = '/Banner Acai House 2.png';
+  const backgroundImage = '/Banner Acai House 2.mp4';
 
   const optimizeImageUrl = (url: string) => {
     if (url.includes('supabase.co')) {
