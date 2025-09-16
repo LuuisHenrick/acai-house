@@ -50,7 +50,7 @@ export default function Contact() {
         .from('site_settings')
         .select('setting_key, setting_value')
         .in('setting_key', [
-          'instagram_url', 'facebook_url', 'ifood_url', 
+          'instagram_url', 'facebook_url', 'ifood_url',
           'tiktok_url', 'whatsapp_url', 'phone_number', 'email_contact'
         ]);
 
@@ -216,19 +216,7 @@ export default function Contact() {
               )}
             </div>
 
-            {/* Map */}
-            <div className="bg-white p-4 rounded-lg shadow-lg">
-              <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3750.9590029571687!2d-43.9771463!3d-19.9269624!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTnCsDU1JzM3LjEiUyA0M8KwNTgnMzcuNyJX!5e0!3m2!1spt-BR!2sbr!4v1635789012345!5m2!1spt-BR!2sbr"
-                width="100%"
-                height="300"
-                style={{ border: 0 }}
-                allowFullScreen
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                className="rounded-lg"
-              ></iframe>
-            </div>
+            {/* Apenas removido a div do iframe, deixando os outros elementos de contato no lugar. */}
           </div>
 
           {/* Contact Form */}
