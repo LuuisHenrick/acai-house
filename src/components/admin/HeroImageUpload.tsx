@@ -224,7 +224,7 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/jpg,image/png,image/webp"
+          accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
           onChange={handleFileInputChange}
           className="hidden"
           disabled={isUploading}
@@ -240,7 +240,7 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
               {dragActive ? 'Solte a imagem aqui' : 'Ou faça upload de uma nova imagem'}
             </p>
             <p className="text-sm text-gray-500 mt-1">
-              JPG, PNG ou WebP até 3MB
+              JPG, PNG, WebP ou GIF (animado) até 5MB
             </p>
           </div>
 
@@ -263,9 +263,10 @@ export default function HeroImageUpload({ currentImageUrl, onImageUpdate }: Hero
           <div className="text-sm text-blue-800">
             <p className="font-medium mb-1">Dicas para melhor resultado:</p>
             <ul className="list-disc list-inside space-y-1 text-blue-700">
-              <li>Use imagens com resolução mínima de 1920x1080px</li>
+              <li>Use imagens/GIFs com resolução mínima de 1920x1080px</li>
               <li>Prefira imagens horizontais (landscape)</li>
-              <li>Evite imagens com muito texto ou detalhes pequenos</li>
+              <li>Evite imagens/GIFs com muito texto ou detalhes pequenos</li>
+              <li>GIFs animados serão renderizados como vídeo para melhor performance</li>
               <li>A imagem será exibida com overlay escuro para melhor legibilidade do texto</li>
               <li>O banner oficial da Açaí House já está otimizado para o site</li>
             </ul>

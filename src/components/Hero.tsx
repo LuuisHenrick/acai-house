@@ -1,29 +1,29 @@
 import React from 'react';
 import { useSiteSettings } from '../context/SiteSettingsContext';
+import { OptimizedMedia } from '../utils/mediaUtils';
 
 export default function Hero() {
   const { settings } = useSiteSettings();
 
-  // Use the new Açaí House banner as the primary background
-  const backgroundImage = '/Banner Acai House 2.mp4';
-
-  const optimizeImageUrl = (url: string) => {
-    if (url.includes('supabase.co')) {
-      return `${url}?width=1920&quality=80`;
-    }
-    return url;
+  const backgroundImage = settings.hero_background_url;
   };
-
   return (
     <div id="hero" className="relative h-screen">
-      <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-500"
-        style={{
-          backgroundImage: `url("${optimizeImageUrl(backgroundImage)}")`,
+      {/* Background Media Otimizada */}
+      <OptimizedMedia
+        src={backgroundImage}
+        alt="Açaí House Background"
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ 
+          objectFit: 'cover',
+          objectPosition: 'center'
         }}
-      >
-        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
-      </div>
+        loading="eager"
+        fallbackSrc="/Banner Acai House 3.png"
+      />
+      
+      {/* Overlay escuro */}
+      <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       
       <div className="relative h-full flex items-center justify-center text-center text-white px-4">
         <div className="max-w-3xl">

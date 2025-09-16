@@ -180,7 +180,7 @@ function ImageModal({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/jpg,image/png,image/webp"
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleImageUpload(file);
@@ -209,8 +209,9 @@ function ImageModal({
                   <ul className="list-disc list-inside space-y-1 text-blue-700">
                     <li>Use imagens quadradas (1:1) para melhor exibição</li>
                     <li>Resolução mínima recomendada: 800x800px</li>
-                    <li>Formatos aceitos: JPG, PNG, WebP (máx. 2MB)</li>
+                    <li>Formatos aceitos: JPG, PNG, WebP, GIF (máx. 5MB)</li>
                     <li>Evite imagens com muito texto pequeno</li>
+                    <li>GIFs animados serão otimizados para melhor performance</li>
                   </ul>
                 </div>
               </div>

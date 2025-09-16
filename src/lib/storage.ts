@@ -15,8 +15,8 @@ export interface UploadOptions {
 }
 
 const DEFAULT_OPTIONS: Required<UploadOptions> = {
-  maxSizeBytes: 3 * 1024 * 1024, // 3MB
-  allowedTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
+  maxSizeBytes: 5 * 1024 * 1024, // 5MB
+  allowedTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'],
   bucket: 'site-images',
   quality: 0.8,
   maxWidth: 1200,
@@ -25,12 +25,18 @@ const DEFAULT_OPTIONS: Required<UploadOptions> = {
 
 export class StorageService {
   /**
-   * Otimiza uma imagem redimensionando e comprimindo
+   * Otimiza uma imagem redimensionando e comprimindo (exceto GIFs)
    */
   private static async optimizeImage(
     file: File, 
     options: Required<UploadOptions>
   ): Promise<File> {
+    // Para GIFs, retornar o arquivo original para preservar animação
+    if (file.type === 'image/gif') {
+      console.log('GIF detected, skipping optimization to preserve animation');
+      return file;
+    }
+
     return new Promise((resolve, reject) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -133,7 +139,7 @@ export class StorageService {
       }
 
       // Gerar nome único para o arquivo
-      const fileExt = 'jpg'; // Sempre JPG após otimização
+      const fileExt = optimizedFile.type === 'image/gif' ? 'gif' : 'jpg';
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const fullPath = `${path}/${fileName}`;
       
@@ -146,6 +152,17 @@ export class StorageService {
         });
       
       if (error) {
+        // Verificar se é erro de tipo MIME não suportado
+        if (error.message.includes('mime type') && optimizedFile.type === 'image/gif') {
+          throw new Error('GIFs não são suportados pelo bucket atual do Supabase. Configure o bucket para aceitar image/gif.');
+        }
+        
+        // Verificar se é erro de tamanho
+        if (error.message.includes('size') || error.message.includes('too large')) {
+          const fileSizeMB = (optimizedFile.size / (1024 * 1024)).toFixed(1);
+          throw new Error(`Arquivo muito grande (${fileSizeMB}MB). O bucket atual suporta até 3MB. Configure o bucket para aceitar arquivos maiores.`);
+        }
+        
         throw new Error(`Erro no upload: ${error.message}`);
       }
       

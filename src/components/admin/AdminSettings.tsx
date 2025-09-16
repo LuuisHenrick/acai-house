@@ -204,7 +204,7 @@ export default function AdminSettings() {
                       Dimensões recomendadas: 100x100px ou proporção 1:1
                     </p>
                     <p className="text-xs text-gray-500">
-                      Formatos aceitos: PNG, JPG, SVG (máx. 5MB)
+                      Formatos aceitos: JPG, PNG, WebP, GIF (animado) - máximo 5MB
                     </p>
                   </div>
                 </div>
@@ -227,7 +227,7 @@ export default function AdminSettings() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];

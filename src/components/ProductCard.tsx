@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { OptimizedMedia, getOptimizedMediaUrl } from '../utils/mediaUtils';
 
 interface ProductImage {
   id: string;
@@ -144,10 +145,7 @@ const ProductCard = React.memo(({ product, onClick }: ProductCardProps) => {
   }, [product.sizes]);
 
   const optimizeImageUrl = useCallback((url: string) => {
-    if (url.includes('supabase.co')) {
-      return `${url}?width=400&quality=70`;
-    }
-    return url;
+    return getOptimizedMediaUrl(url, 'card');
   }, []);
 
   const currentImage = activeImages[currentImageIndex];
@@ -168,15 +166,41 @@ const ProductCard = React.memo(({ product, onClick }: ProductCardProps) => {
       >
         {/* Main Image */}
         <div className="relative w-full h-full">
-          <img
-            src={optimizeImageUrl(currentImage.image_url)}
-            alt={currentImage.alt_text || product.name}
-            className="w-full h-full object-cover transition-opacity duration-500"
-            loading="lazy"
-            onError={(e) => {
-              e.currentTarget.src = 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80&width=400&quality=70';
-            }}
-          />
+          <OptimizedMedia
+            // Renderizar GIF como vídeo para melhor performance
+            <video
+              className="w-full h-full object-cover transition-opacity duration-500"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              style={{ 
+                objectFit: 'cover',
+                objectPosition: 'center'
+              }}
+            >
+              <source src={currentImage.image_url} type="video/mp4" />
+              {/* Fallback para navegadores que não suportam */}
+              <img
+                src={optimizeImageUrl(currentImage.image_url)}
+                alt={currentImage.alt_text || product.name}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </video>
+          ) : (
+            // Renderizar imagens estáticas normalmente
+            <img
+              src={optimizeImageUrl(currentImage.image_url)}
+              alt={currentImage.alt_text || product.name}
+              className="w-full h-full object-cover transition-opacity duration-500"
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.src = 'https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80&width=400&quality=70';
+              }}
+            />
+          )}
           
           {/* Gradient overlay for better text readability */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -231,9 +255,7 @@ const ProductCard = React.memo(({ product, onClick }: ProductCardProps) => {
         <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <button
             onClick={(e) => {
-              e.stopPropagation();
-              onClick();
-            }}
+            fallbackSrc="https://images.unsplash.com/photo-1596463119248-53c8d33d2739?auto=format&fit=crop&q=80&width=400&quality=70"
             className="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 transition-colors duration-200 shadow-lg"
             aria-label="Adicionar ao carrinho"
           >
